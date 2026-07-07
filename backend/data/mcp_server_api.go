@@ -149,7 +149,7 @@ func (a *MCPServerApi) TestConnection(id uint) (string, error) {
 	if err != nil {
 		errMsg := fmt.Sprintf("创建MCP客户端失败: %s", err.Error())
 		a.UpdateStatus(id, "unavailable", errMsg)
-		return "", fmt.Errorf(errMsg)
+		return "", fmt.Errorf("%s", errMsg)
 	}
 
 	initRequest := mcp.InitializeRequest{}
@@ -163,14 +163,14 @@ func (a *MCPServerApi) TestConnection(id uint) (string, error) {
 	if err != nil {
 		errMsg := fmt.Sprintf("初始化MCP连接失败: %s", err.Error())
 		a.UpdateStatus(id, "unavailable", errMsg)
-		return "", fmt.Errorf(errMsg)
+		return "", fmt.Errorf("%s", errMsg)
 	}
 
 	tools, err := einomcp.GetTools(ctx, &einomcp.Config{Cli: cli})
 	if err != nil {
 		errMsg := fmt.Sprintf("获取工具列表失败: %s", err.Error())
 		a.UpdateStatus(id, "unavailable", errMsg)
-		return "", fmt.Errorf(errMsg)
+		return "", fmt.Errorf("%s", errMsg)
 	}
 
 	toolCount := len(tools)

@@ -424,7 +424,7 @@ onBeforeMount(() => {
   GetAiConfigs().then(res=>{
     console.log(res)
     selectOptions.value = res
-    selectValue.value = res[0].ID
+    selectValue.value = res?.[0]?.ID ?? null
   })
 })
 

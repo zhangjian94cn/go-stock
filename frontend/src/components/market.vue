@@ -111,7 +111,7 @@ onBeforeMount(() => {
 
   GetAiConfigs().then(res=>{
     aiConfigs.value = res
-    aiConfigId.value = res[0].ID
+    aiConfigId.value = res?.[0]?.ID ?? null
   })
   GetTelegraphList("财联社电报").then((res) => {
     telegraphList.value = res
