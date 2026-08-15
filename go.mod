@@ -8,8 +8,8 @@ require (
 	github.com/bensema/gotdx v0.0.0-20260704141338-25c9fae16f89
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/bytedance/sonic v1.15.2
-	github.com/chromedp/cdproto v0.0.0-20260427013145-5737772c319b
-	github.com/chromedp/chromedp v0.15.1
+	github.com/chromedp/cdproto v0.0.0-20260714215040-dc233986426f
+	github.com/chromedp/chromedp v0.16.0
 	github.com/cloudwego/eino v0.9.13
 	github.com/cloudwego/eino-ext/components/model/ark v0.1.69
 	github.com/cloudwego/eino-ext/components/model/claude v0.1.25
@@ -45,7 +45,7 @@ require (
 	go.uber.org/zap v1.28.0
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 	golang.org/x/net v0.56.0
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.47.0
 	golang.org/x/text v0.40.0
 	google.golang.org/genai v1.60.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -101,7 +101,7 @@ require (
 	github.com/getlantern/hidden v0.0.0-20220104173330-f221c5a24770 // indirect
 	github.com/getlantern/ops v0.0.0-20231025133620-f368ab734534 // indirect
 	github.com/glebarez/go-sqlite v1.22.0 // indirect
-	github.com/go-json-experiment/json v0.0.0-20260601182631-00ed12fed2a6 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
