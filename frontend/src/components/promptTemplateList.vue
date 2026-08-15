@@ -8,7 +8,9 @@ import {
   UpdatePromptTemplate
 } from "../../wailsjs/go/main/App";
 import { EventsEmit } from "../../wailsjs/runtime";
-import {NButton, NInput, NTag, NText, useMessage, useNotification,useDialog, NModal, NCard, NForm, NFormItem, NSpace} from "naive-ui";
+import {NButton, NInput, NTag, NText, NSwitch, useMessage, useNotification,useDialog, NModal, NCard, NForm, NFormItem, NSpace, NPopover} from "naive-ui";
+import { MdEditor, MdPreview } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 
 const notify = useNotification()
 const message = useMessage()
@@ -16,11 +18,13 @@ const dialog = useDialog()
 const editorDataRef = reactive({
   darkTheme: false
 })
+const editorTheme = ref('light')
 
 onBeforeMount(() => {
   GetConfig().then(result => {
     if (result.darkTheme) {
       editorDataRef.darkTheme = true
+      editorTheme.value = 'dark'
     }
   })
 })
@@ -81,13 +85,29 @@ const columnsRef = ref([
   {
     title: '模板内容',
     key: 'content',
-    ellipsis: {
-      tooltip: true
+    width: 200,
+    render(row) {
+      return h(NPopover, {
+        trigger: 'hover',
+        placement: 'left',
+        showArrow: true,
+        style: 'max-width: 800px; max-height: 400px; overflow: hidden',
+        scrollable: true
+      }, {
+        trigger: () => h('span', {
+          style: 'display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;'
+        }, row.content),
+        default: () => h(MdPreview, {
+          style:'text-align: left;',
+          modelValue: row.content,
+          theme: editorTheme.value
+        })
+      })
     }
   },
   {
     title: '操作',
-    width: 200,
+    width: 260,
     render(row) {
       return [
         h(
@@ -99,6 +119,16 @@ const columnsRef = ref([
             onClick: () => showEditModal(row)
           },
           { default: () => '编辑' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'info',
+            style: 'margin-right: 5px',
+            onClick: () => showShareModal(row)
+          },
+          { default: () => '分享' }
         ),
         h(
           NButton,
@@ -135,6 +165,20 @@ const modalDataRef = reactive({
   }
 })
 
+const shareDataRef = reactive({
+  visible: false,
+  title: '',
+  content: '',
+  description: '',
+  category: '',
+  tags: '',
+  isPublic: true,
+  vipOnly: false,
+  loading: false
+})
+
+const promptPlazaApiBase = ref('http://go-stock.sparkmemory.top:1918/api')
+
 function query({ page, pageSize = 10, name = "", type = "", content = "" }) {
   return new Promise((resolve) => {
     GetPromptTemplateList({
@@ -147,6 +191,7 @@ function query({ page, pageSize = 10, name = "", type = "", content = "" }) {
       resolve({
         data: res.list,
         total: res.total,
+        page: res.page,
         totalPages: res.totalPages
       })
     })
@@ -184,14 +229,14 @@ function handleSearch() {
   if (!loadingRef.value) {
     loadingRef.value = true
     query({
-      page: paginationReactive?.page ?? 1,
+      page: 1,
       pageSize: paginationReactive.pageSize,
       name: searchFormRef.name,
       type: searchFormRef.type,
       content: searchFormRef.content
     }).then((data) => {
       dataRef.value = data.data
-      paginationReactive.page = data.page
+      paginationReactive.page = data.page || 1
       paginationReactive.pageCount = data.totalPages
       paginationReactive.itemCount = data.total
       loadingRef.value = false
@@ -252,6 +297,90 @@ function deletePromptTemplate(id) {
     }
   })
 }
+
+async function checkUserIsVip() {
+  const token = localStorage.getItem('promptPlazaToken')
+  if (!token) return false
+  try {
+    const resp = await fetch(promptPlazaApiBase.value + '/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const json = await resp.json()
+    if (json.code === 0 && json.data) {
+      const user = json.data
+      if (user.vipLevel > 0 && user.vipExpireAt) {
+        return new Date(user.vipExpireAt) > new Date()
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return false
+}
+
+async function showShareModal(row) {
+  shareDataRef.title = row.name || ''
+  shareDataRef.content = row.content || ''
+  shareDataRef.description = ''
+  shareDataRef.category = row.type || ''
+  shareDataRef.tags = ''
+  shareDataRef.isPublic = true
+  shareDataRef.vipOnly = false
+  shareDataRef.visible = true
+  await GetConfig().then(result => {
+    if (result.promptPlazaApiBase) {
+      promptPlazaApiBase.value = result.promptPlazaApiBase
+    }
+  })
+  const isVip = await checkUserIsVip()
+  if (isVip) {
+    shareDataRef.vipOnly = true
+  }
+}
+
+async function handleShare() {
+  if (!shareDataRef.title || !shareDataRef.content) {
+    message.warning('标题和内容不能为空')
+    return
+  }
+  const token = localStorage.getItem('promptPlazaToken')
+  if (!token) {
+    message.warning('请先在"提示词广场"登录后再分享')
+    return
+  }
+  shareDataRef.loading = true
+  try {
+    const resp = await fetch(promptPlazaApiBase.value + '/prompts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        title: shareDataRef.title,
+        content: shareDataRef.content,
+        description: shareDataRef.description,
+        category: shareDataRef.category,
+        tags: shareDataRef.tags,
+        isPublic: shareDataRef.isPublic,
+        vipOnly: shareDataRef.vipOnly
+      })
+    })
+    const json = await resp.json()
+    if (json.code !== 0) {
+      if (json.code === 401) {
+        message.error('登录已过期，请先在"提示词广场"重新登录')
+      } else {
+        message.error('分享失败: ' + (json.message || '未知错误'))
+      }
+      return
+    }
+    message.success('分享成功！')
+    shareDataRef.visible = false
+  } catch (e) {
+    message.error('分享失败: ' + e.message)
+  } finally {
+    shareDataRef.loading = false
+  }
+}
 </script>
 
 <template>
@@ -282,7 +411,7 @@ function deletePromptTemplate(id) {
     />
 
     <!-- 编辑/新增模态框 -->
-    <n-modal v-model:show="modalDataRef.visible" preset="card" style="width: 800px;text-align: left" :title="modalDataRef.formData.ID>0?'修改':'新增'+'Prompt模板'">
+    <n-modal v-model:show="modalDataRef.visible" preset="card" style="width: 1100px;text-align: left" :title="modalDataRef.formData.ID>0?'修改':'新增'+'Prompt模板'">
       <n-form :model="modalDataRef.formData" label-placement="left" label-width="80">
         <n-form-item label="模板名称" required>
           <n-input v-model:value="modalDataRef.formData.name" placeholder="请输入模板名称" />
@@ -291,10 +420,12 @@ function deletePromptTemplate(id) {
           <n-select v-model:value="modalDataRef.formData.type" :options="promptTypeOptions" placeholder="请选择提示词类型"/>
         </n-form-item>
         <n-form-item label="模板内容" required>
-          <n-input 
-            v-model:value="modalDataRef.formData.content" 
-            type="textarea"
-            :autosize="{ minRows: 12, maxRows: 12, }"
+          <MdEditor
+            v-model="modalDataRef.formData.content"
+            style="height: 400px"
+            :theme="editorTheme"
+            :preview="true"
+            :toolbarsExclude="['github', 'htmlPreview', 'catalog', 'save']"
             placeholder="请输入模板内容"
           />
         </n-form-item>
@@ -306,8 +437,54 @@ function deletePromptTemplate(id) {
         </n-space>
       </template>
     </n-modal>
+
+    <n-modal v-model:show="shareDataRef.visible" preset="card" style="width: 700px;text-align: left" title="分享到提示词广场">
+      <n-form :model="shareDataRef" label-placement="left" label-width="80">
+        <n-form-item label="标题" required>
+          <n-input v-model:value="shareDataRef.title" placeholder="提示词标题" />
+        </n-form-item>
+        <n-space :size="8">
+          <n-form-item label="分类" label-placement="left" style="width: 300px">
+            <n-input v-model:value="shareDataRef.category" placeholder="如: AI编程, 数据分析" />
+          </n-form-item>
+          <n-form-item label="标签" label-placement="left" style="width: 300px">
+            <n-input v-model:value="shareDataRef.tags" placeholder="逗号分隔" />
+          </n-form-item>
+        </n-space>
+        <n-form-item label="描述">
+          <n-input v-model:value="shareDataRef.description" type="textarea" :rows="2" placeholder="简短描述提示词用途" />
+        </n-form-item>
+        <n-form-item label="内容" required>
+          <n-input v-model:value="shareDataRef.content" type="textarea" :rows="6" placeholder="提示词内容" />
+        </n-form-item>
+        <n-form-item label="公开">
+          <n-space align="center">
+            <n-switch v-model:value="shareDataRef.isPublic" />
+            <n-divider vertical />
+            <n-text>VIP专属</n-text>
+            <n-switch v-model:value="shareDataRef.vipOnly" />
+            <n-text depth="3" style="font-size: 12px">仅VIP用户可查看完整内容</n-text>
+          </n-space>
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="shareDataRef.visible = false">取消</n-button>
+          <n-button type="primary" :loading="shareDataRef.loading" @click="handleShare">分享</n-button>
+        </n-space>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <style scoped>
+:deep(.md-editor) {
+  text-align: left;
+}
+:deep(.n-popover .md-editor-preview) {
+  padding: 8px 12px;
+}
+:deep(.n-popover .md-editor-preview-wrapper) {
+  padding: 0;
+}
 </style>

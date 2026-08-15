@@ -471,10 +471,10 @@ type HotItem struct {
 	RankChange int     `json:"rank_change" md:"排名变化"`
 	//HasExist     interface{} `json:"has_exist" md:"-"`
 	//Symbol       string      `json:"symbol" md:"-"`
-	Percent float64 `json:"percent" md:"涨跌幅(%)"`
-	Current float64 `json:"current" md:"股价"`
-	Chg     float64 `json:"chg" md:"股价变化"`
-	//Exchange     string      `json:"exchange" md:"交易所代码"`
+	Percent  float64 `json:"percent" md:"涨跌幅(%)"`
+	Current  float64 `json:"current" md:"股价"`
+	Chg      float64 `json:"chg" md:"股价变化"`
+	Exchange string  `json:"exchange" md:"交易所代码"`
 	//StockType    int         `json:"stock_type" md:"-"`
 	//SubType      string      `json:"sub_type" md:"-"`
 	//Ad           int         `json:"ad" md:"-"`
@@ -496,6 +496,45 @@ type HotEvent struct {
 	Hot         int         `json:"hot"`
 	StatusCount int         `json:"status_count"`
 	Content     string      `json:"content"`
+}
+
+// ConceptEventDay 同花顺每日炒作题材接口按日分组的数据
+type ConceptEventDay struct {
+	Date      string         `json:"date" md:"日期"`
+	EventList []ConceptEvent `json:"eventList" md:"事件列表"`
+}
+
+// ConceptEvent 炒作题材事件
+type ConceptEvent struct {
+	EventID             string            `json:"eventId" md:"-"`
+	Title               string            `json:"title" md:"事件标题"`
+	Heat                int64             `json:"heat" md:"热度"`
+	Themes              []ConceptTheme    `json:"themes" md:"关联题材"`
+	TopStocks           []ConceptTopStock `json:"topStocks" md:"龙头股"`
+	CreateTime          int64             `json:"createTime" md:"创建时间"`
+	HasTopped           bool              `json:"hasTopped" md:"-"`
+	InvestmentDirection string            `json:"investmentDirection" md:"投资方向"`
+}
+
+// ConceptTheme 事件关联的题材/行业
+type ConceptTheme struct {
+	ID        string  `json:"id" md:"-"`
+	Type      string  `json:"type" md:"类型"`
+	ShowName  string  `json:"showName" md:"题材名称"`
+	IndexCode string  `json:"indexCode" md:"指数代码"`
+	MarketID  string  `json:"marketId" md:"-"`
+	IndexName string  `json:"indexName" md:"指数名称"`
+	BlockID   *string `json:"blockId" md:"-"`
+}
+
+// ConceptTopStock 事件龙头股
+type ConceptTopStock struct {
+	MarketID     string  `json:"marketId" md:"-"`
+	StockCode    string  `json:"stockCode" md:"股票代码"`
+	StockName    string  `json:"stockName" md:"股票名称"`
+	RisePercent  float64 `json:"risePercent" md:"涨幅(%)"`
+	LimitUpState *int    `json:"limitUpState" md:"涨停状态"`
+	Reason       *string `json:"reason" md:"-"`
 }
 
 type GDP struct {
@@ -1043,6 +1082,8 @@ type AiRecommendStocks struct {
 	RecommendStopLossPrice      string     `json:"recommendStopLossPrice" md:"ai建议止损价"`
 	RiskRemarks                 string     `json:"riskRemarks" md:"风险提示"`
 	Remarks                     string     `json:"remarks" md:"备注"`
+	SystemPrompt                string     `json:"systemPrompt" gorm:"type:text" md:"系统提示词"`
+	UserPrompt                  string     `json:"userPrompt" gorm:"type:text" md:"用户提示词"`
 	EnableAlert                 bool       `json:"enableAlert" gorm:"default:false" md:"开启预警"`
 }
 
@@ -1512,14 +1553,16 @@ func (AiAssistantSession) TableName() string {
 
 // AiAssistantMessage 单条消息，供前后端 JSON 序列化
 type AiAssistantMessage struct {
-	Role        string          `json:"role"`
-	Content     string          `json:"content"`
-	Reasoning   string          `json:"reasoning"`
-	Time        string          `json:"time"`                // 消息时间，格式如 "2006-01-02 15:04:05"
-	ModelName   string          `json:"modelName,omitempty"` // 助手回复所用模型展示名（如配置名称 + 模型名）
-	ToolCalls   json.RawMessage `json:"toolCalls,omitempty"`
-	ToolResults json.RawMessage `json:"toolResults,omitempty"`
-	Timeline    json.RawMessage `json:"timeline,omitempty"` // 前端按时间序存储的正文/工具块
+	Role         string          `json:"role"`
+	Content      string          `json:"content"`
+	Reasoning    string          `json:"reasoning"`
+	Time         string          `json:"time"`                // 消息时间，格式如 "2006-01-02 15:04:05"
+	ModelName    string          `json:"modelName,omitempty"` // 助手回复所用模型展示名（如配置名称 + 模型名）
+	ToolCalls    json.RawMessage `json:"toolCalls,omitempty"`
+	ToolResults  json.RawMessage `json:"toolResults,omitempty"`
+	Timeline     json.RawMessage `json:"timeline,omitempty"`     // 前端按时间序存储的正文/工具块
+	Steps        []string        `json:"steps,omitempty"`        // 执行步骤（Agent 模式下逐步生成的步骤文本）
+	JsonMarkdown string          `json:"jsonMarkdown,omitempty"` // 从 AI 输出中提取的 JSON 分析报告 Markdown
 }
 
 // AiAssistantSessionResp 会话查询响应
@@ -1607,9 +1650,10 @@ type MCPServer struct {
 	Name        string    `json:"name" gorm:"size:255;not null"`
 	Description string    `json:"description" gorm:"size:500"`
 	URL         string    `json:"url" gorm:"size:500"`
+	Type        string    `json:"type" gorm:"size:20;default:streamable-http"`
+	Headers     string    `json:"headers" gorm:"type:text"`
 	Command     string    `json:"command" gorm:"size:500"`
 	Args        string    `json:"args" gorm:"type:text"`
-	Env         string    `json:"env" gorm:"type:text"`
 	Enable      bool      `json:"enable" gorm:"default:true"`
 	Status      string    `json:"status" gorm:"size:20;default:stopped"`
 	TestResult  string    `json:"testResult" gorm:"size:500"`
@@ -1677,3 +1721,292 @@ type SkillPageResp struct {
 	Total int     `json:"total"`
 	Data  []Skill `json:"data"`
 }
+
+type CustomStrategy struct {
+	ID          uint      `json:"id" gorm:"primarykey"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+	Name        string    `json:"name" gorm:"size:255;not null"`
+	Query       string    `json:"query" gorm:"type:text;not null"`
+	Description string    `json:"description" gorm:"size:500"`
+	SortOrder   int       `json:"sortOrder" gorm:"default:0"`
+}
+
+func (CustomStrategy) TableName() string {
+	return "custom_strategies"
+}
+
+type CustomStrategyQuery struct {
+	Page     int    `json:"page"`
+	PageSize int    `json:"pageSize"`
+	Name     string `json:"name"`
+}
+
+type CustomStrategyPageData struct {
+	List       []CustomStrategy `json:"list"`
+	Total      int64            `json:"total"`
+	Page       int              `json:"page"`
+	PageSize   int              `json:"pageSize"`
+	TotalPages int              `json:"totalPages"`
+}
+
+// BKFundFlow 板块资金流向数据
+type BKFundFlow struct {
+	ID        uint      `json:"id" gorm:"primarykey"`
+	Code      string    `json:"code" gorm:"size:20;index:idx_bk_code_time"`     // 板块代码 BK0475
+	Name      string    `json:"name" gorm:"size:50"`                            // 板块名称
+	NetInflow int64     `json:"netInflow"`                                      // 主力净流入金额（元）
+	SnapTime  string    `json:"snapTime" gorm:"size:19;index:idx_bk_code_time"` // 快照时间 YYYY-MM-DD HH:MM:SS
+	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
+}
+
+func (BKFundFlow) TableName() string {
+	return "bk_fund_flow"
+}
+
+// BKFundFlowPoint 板块资金流向数据点（前端折线图用）
+type BKFundFlowPoint struct {
+	SnapTime  string `json:"snapTime"`
+	NetInflow int64  `json:"netInflow"`
+}
+
+// ConceptFundFlow 概念资金流向数据
+type ConceptFundFlow struct {
+	ID        uint      `json:"id" gorm:"primarykey"`
+	Code      string    `json:"code" gorm:"size:20;index:idx_concept_code_time"`     // 概念代码
+	Name      string    `json:"name" gorm:"size:50"`                                 // 概念名称
+	NetInflow int64     `json:"netInflow"`                                           // 主力净流入金额（元）
+	SnapTime  string    `json:"snapTime" gorm:"size:19;index:idx_concept_code_time"` // 快照时间 YYYY-MM-DD HH:MM:SS
+	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
+}
+
+func (ConceptFundFlow) TableName() string {
+	return "concept_fund_flow"
+}
+
+// ConceptFundFlowPoint 概念资金流向数据点（前端折线图用）
+type ConceptFundFlowPoint struct {
+	SnapTime  string `json:"snapTime"`
+	NetInflow int64  `json:"netInflow"`
+}
+
+// DailyOperationPlan 每日操作计划
+type DailyOperationPlan struct {
+	ID              uint      `json:"id" gorm:"primarykey"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+	PlanDate        string    `json:"planDate" gorm:"size:10;index"`         // 计划开始日期 YYYY-MM-DD
+	PlanEndDate     string    `json:"planEndDate" gorm:"size:10;index"`      // 计划结束日期 YYYY-MM-DD，空表示仅当天
+	StockCode       string    `json:"stockCode" gorm:"size:20;index"`        // 股票代码
+	StockName       string    `json:"stockName" gorm:"size:50"`              // 股票名称
+	OverallJudgment string    `json:"overallJudgment" gorm:"type:text"`      // 总体判断
+	Scenarios       string    `json:"scenarios" gorm:"type:text"`            // 情景方案 JSON 数组
+	Discipline      string    `json:"discipline" gorm:"type:text"`           // 操作纪律 JSON 数组
+	Summary         string    `json:"summary" gorm:"type:text"`              // 一句话总结
+	RiskWarning     string    `json:"riskWarning" gorm:"type:text"`          // 风险提示
+	Status          string    `json:"status" gorm:"size:20;default:pending"` // pending/executing/completed/expired
+	Remarks         string    `json:"remarks" gorm:"type:text"`              // 备注
+	EnableAlert     bool      `json:"enableAlert" gorm:"default:false"`      // 是否开启盘中预警监控
+	NotifyChannels  string    `json:"notifyChannels" gorm:"size:100"`        // 通知渠道 JSON，如 ["app","feishu","dingding"]，空表示全部
+}
+
+func (DailyOperationPlan) TableName() string {
+	return "daily_operation_plan"
+}
+
+// OperationScenario 操作情景
+type OperationScenario struct {
+	Title         string `json:"title"`         // 情景标题，如 "情景一：低开/平开在 460-475 区间（最理想）"
+	Condition     string `json:"condition"`     // 触发条件描述
+	ActionType    string `json:"actionType"`    // 动作类型: buy/wait/observe/stop_loss
+	Action        string `json:"action"`        // 动作描述，如 "分批买入"
+	Position      string `json:"position"`      // 仓位，如 "总仓位1/3"
+	BuyPriceRange string `json:"buyPriceRange"` // 买入区间，如 "460-470元"
+	StopLossPrice string `json:"stopLossPrice"` // 止损价，如 "400元"
+	Target1       string `json:"target1"`       // 第一目标，如 "500-505元（减仓1/2）"
+	Target2       string `json:"target2"`       // 第二目标，如 "550-560元（全部止盈）"
+	Strategy      string `json:"strategy"`      // 策略说明/备注
+	IsBest        bool   `json:"isBest"`        // 是否最理想情景
+	// 量化字段（盘中预警监控用，0 表示不监控）
+	TriggerPriceMin  float64 `json:"triggerPriceMin"`  // 情景触发价下限，实时价进入 [Min,Max] 区间时触发情景提醒
+	TriggerPriceMax  float64 `json:"triggerPriceMax"`  // 情景触发价上限
+	StopLossPriceNum float64 `json:"stopLossPriceNum"` // 止损价（数值），实时价 <= 此值触发止损预警
+	Target1Min       float64 `json:"target1Min"`       // 第一目标价下限，实时价 >= 此值触发目标1达成
+	Target1Max       float64 `json:"target1Max"`       // 第一目标价上限
+	Target2Min       float64 `json:"target2Min"`       // 第二目标价下限，实时价 >= 此值触发目标2达成
+	Target2Max       float64 `json:"target2Max"`       // 第二目标价上限
+}
+
+// OperationDiscipline 操作纪律
+type OperationDiscipline struct {
+	Principle string `json:"principle"` // 原则，如 "仓位控制"
+	Detail    string `json:"detail"`    // 说明，如 "首次建仓不超过总计划资金的1/3"
+}
+
+type DailyOperationPlanQuery struct {
+	Page      int    `form:"page" json:"page"`           // 页码
+	PageSize  int    `form:"pageSize" json:"pageSize"`   // 每页大小
+	StockCode string `form:"stockCode" json:"stockCode"` // 股票代码筛选
+	StockName string `form:"stockName" json:"stockName"` // 股票名称筛选
+	PlanDate  string `form:"planDate" json:"planDate"`   // 计划日期筛选
+	Status    string `form:"status" json:"status"`       // 状态筛选
+}
+
+type DailyOperationPlanPageData struct {
+	List       []DailyOperationPlan `json:"list"`
+	Total      int64                `json:"total"`
+	Page       int                  `json:"page"`
+	PageSize   int                  `json:"pageSize"`
+	TotalPages int                  `json:"totalPages"`
+}
+
+// ConceptDetailInfo 同花顺概念详情页解析结果
+type ConceptDetailInfo struct {
+	ConceptCode string         `json:"conceptCode"` // 概念代码（URL 中的 code，如 309269）
+	PlateCode   string         `json:"plateCode"`   // 板块代码（用于 K 线接口，如 886112）
+	Name        string         `json:"name"`        // 概念名称，如 MLCC概念
+	Definition  string         `json:"definition"`  // 板块简介
+	Market      ConceptMarket  `json:"market"`      // 板块行情数据
+	Stocks      []ConceptStock `json:"stocks"`      // 成分股列表
+}
+
+// ConceptMarket 概念板块行情数据
+type ConceptMarket struct {
+	Open          string `json:"open"`          // 今开
+	PreClose      string `json:"preClose"`      // 昨收
+	Low           string `json:"low"`           // 最低
+	High          string `json:"high"`          // 最高
+	Volume        string `json:"volume"`        // 成交量
+	ChangePercent string `json:"changePercent"` // 板块涨幅(%)
+	ChangeRank    string `json:"changeRank"`    // 涨幅排名
+	UpDownCount   string `json:"upDownCount"`   // 涨跌家数
+	NetInflow     string `json:"netInflow"`     // 资金净流入
+	DealAmount    string `json:"dealAmount"`    // 成交额
+}
+
+// ConceptStock 概念成分股
+type ConceptStock struct {
+	Code          string `json:"code"`          // 代码
+	Name          string `json:"name"`          // 名称
+	Price         string `json:"price"`         // 现价
+	ChangePercent string `json:"changePercent"` // 涨跌幅(%)
+	Change        string `json:"change"`        // 涨跌
+	Speed         string `json:"speed"`         // 涨速(%)
+	Turnover      string `json:"turnover"`      // 换手(%)
+	VolumeRatio   string `json:"volumeRatio"`   // 量比
+	Amplitude     string `json:"amplitude"`     // 振幅(%)
+	DealAmount    string `json:"dealAmount"`    // 成交额
+	FlowShares    string `json:"flowShares"`    // 流通股
+	FlowMarketCap string `json:"flowMarketCap"` // 流通市值
+	PERatio       string `json:"peRatio"`       // 市盈率
+}
+
+// ConceptKLineData 同花顺概念板块 K 线数据
+type ConceptKLineData struct {
+	Name       string             `json:"name"`       // 板块名称
+	Total      int                `json:"total"`      // K 线总数
+	Start      string             `json:"start"`      // 起始日期 YYYYMMDD
+	Factor     float64            `json:"factor"`     // 价格缩放因子（如 1000）
+	IssuePrice float64            `json:"issuePrice"` // 基准价
+	KLines     []ConceptKLineItem `json:"kLines"`     // K 线列表
+}
+
+// ConceptKLineItem 单根 K 线
+type ConceptKLineItem struct {
+	Date   string  `json:"date"`   // 日期 YYYYMMDD
+	Open   float64 `json:"open"`   // 开盘价
+	Close  float64 `json:"close"`  // 收盘价
+	Low    float64 `json:"low"`    // 最低价
+	High   float64 `json:"high"`   // 最高价
+	Volume float64 `json:"volume"` // 成交量
+}
+
+// RzrqRankItem 融资融券排名项
+type RzrqRankItem struct {
+	StockCode   string `json:"stockCode" md:"代码"`
+	StockName   string `json:"stockName" md:"名称"`
+	Date        int64  `json:"date" md:"-"` // 日期(Unix时间戳)，由调用方在标题中展示
+	Lrye        string `json:"lrye" md:"两融余额"`
+	LryeRate    string `json:"lryeRate" md:"两融余额占比"`
+	Rzye        string `json:"rzye" md:"融资余额"`
+	RzyeRate    string `json:"rzyeRate" md:"融资余额占比"`
+	Rqye        string `json:"rqye" md:"融券余额"`
+	RqyeRate    string `json:"rqyeRate" md:"融券余额占比"`
+	Jmr         string `json:"jmr" md:"净买入额"`
+	JmrRate     string `json:"jmrRate" md:"净买入占比"`
+	Rzmre       string `json:"rzmre" md:"融资买入额"`
+	Rzche       string `json:"rzche" md:"融资偿还额"`
+	Rzjmce      string `json:"rzjmce" md:"融资净买入"`
+	Yezf        string `json:"yezf" md:"余额增幅"`
+	ClosePrice  string `json:"close_price" md:"收盘价"`
+	CloseProfit string `json:"close_profit" md:"涨跌幅"`
+	MarketId    string `json:"marketId" md:"-"` // 市场ID，内部字段不展示
+}
+
+// RzrqRankData 融资融券排名数据
+type RzrqRankData struct {
+	Type string         `json:"type"` // hyList/gnList/ggList
+	List []RzrqRankItem `json:"list"`
+}
+
+// RzrqTrendItem 融资融券走势数据点
+type RzrqTrendItem struct {
+	Date  string `json:"date" md:"日期"`
+	Rzye  string `json:"rzye" md:"融资余额"`
+	Rzjlr string `json:"rzjlr" md:"融资净买入"`
+	Spj   string `json:"spj" md:"上证收盘价"`
+	Spzf  string `json:"spzf" md:"上证涨幅"`
+}
+
+// RzrqTrendData 融资融券走势数据
+type RzrqTrendData struct {
+	Type       string          `json:"type"`       // hyList/gnList/ggList
+	Code       string          `json:"code"`       // 板块/股票代码，空字符串表示全市场汇总
+	Items      []RzrqTrendItem `json:"items"`      // 走势数据点列表
+	RzyeUnit   string          `json:"rzyeUnit"`   // 融资余额单位
+	RzjlrUnit  string          `json:"rzjlrUnit"`  // 融资净买入单位
+	SpjUnit    string          `json:"spjUnit"`    // 收盘价单位
+	SpzfUnit   string          `json:"spzfUnit"`   // 涨幅单位
+	UpdateTime string          `json:"updateTime"` // 数据更新日期
+}
+
+// AgentFeedback 用户对 Agent 单次回答的显式反馈（👍/👎）。
+// 用于驱动"懂用户"的双向学习：正向反馈沉淀用户认可的分析风格，负向反馈用于纠偏。
+// UserKey 为用户标识（当前无账号体系，用 machineID+sessionID 组合），见方案文档 6.1。
+type AgentFeedback struct {
+	gorm.Model
+	UserKey    string    `json:"userKey" gorm:"index;size:64"`   // 用户标识
+	SessionID  string    `json:"sessionId" gorm:"index;size:64"` // 会话标识
+	Question   string    `json:"question" gorm:"type:text"`      // 触发反馈的问题
+	Response   string    `json:"response" gorm:"type:text"`      // 被评价的回复
+	Rating     int       `json:"rating"`                         // 1=有用/up，-1=没用/down
+	Reason     string    `json:"reason" gorm:"type:text"`        // 可选：为什么
+	Mode       string    `json:"mode"`                           // react/plan_execute/deepagents
+	FeedbackAt time.Time `json:"feedbackAt"`                     // 反馈时间
+	Processed  bool      `json:"processed" gorm:"default:false"` // 是否已并入画像
+}
+
+func (AgentFeedback) TableName() string { return "agent_feedback" }
+
+// AiRecommendBacktest AI 推荐效果回测结果（P3）。
+// 记录某条 AI 推荐在推荐后 N 日的实际表现，与基准对比，用于评估"判断质量"。
+type AiRecommendBacktest struct {
+	gorm.Model
+	RecommendID    uint      `json:"recommendId" gorm:"index"` // 关联 ai_recommend_stocks.id
+	StockCode      string    `json:"stockCode" gorm:"index;size:20"`
+	StockName      string    `json:"stockName" gorm:"size:50"`
+	Rating         string    `json:"rating" gorm:"size:20"`           // 推荐时的评级（买入/增持/...）
+	PeriodDays     int       `json:"periodDays"`                      // 回测周期（天）
+	RecommendTime  time.Time `json:"recommendTime"`                   // 推荐时间
+	RecommendPrice float64   `json:"recommendPrice"`                  // 推荐时价格
+	EndPrice       float64   `json:"endPrice"`                        // 周期末价格
+	ReturnPct      float64   `json:"returnPct"`                       // 个股收益率（%）
+	BenchmarkPct   float64   `json:"benchmarkPct"`                    // 基准收益率（%）
+	ExcessPct      float64   `json:"excessPct"`                       // 超额收益（%）
+	Outcome        string    `json:"outcome" gorm:"size:20"`          // win/lose/flat（相对基准）
+	ModelName      string    `json:"modelName" gorm:"size:100;index"` // 生成推荐的模型名称（快照）
+	SystemPrompt   string    `json:"systemPrompt" gorm:"type:text"`   // 系统提示词快照
+	UserPrompt     string    `json:"userPrompt" gorm:"type:text"`     // 用户提示词快照
+}
+
+func (AiRecommendBacktest) TableName() string { return "ai_recommend_backtest" }

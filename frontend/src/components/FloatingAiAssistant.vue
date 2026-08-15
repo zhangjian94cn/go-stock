@@ -365,7 +365,7 @@ const userPromptOptions = computed(() =>
   userPromptTemplates.value.map(t => ({ label: t.name ?? '', value: t.ID ?? t.id }))
 )
 const userPromptId = ref(null)
-const thinkingMode = ref(false)
+const thinkingMode = ref(true)
 const memoryMode = ref(true)
 const memoryCount = ref(5)
 const memoryCountOptions = [
@@ -439,6 +439,31 @@ function getLastAssistantContent() {
   return ''
 }
 
+function getLastUserQuestion() {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    const m = messages.value[i]
+    if (m?.role === 'user') {
+      const q = (m?.content ?? '').trim()
+      if (q) return q
+    }
+  }
+  return ''
+}
+
+function findPrecedingUserQuestion(assistantMsg) {
+  if (!assistantMsg) return ''
+  const idx = messages.value.indexOf(assistantMsg)
+  if (idx < 0) return ''
+  for (let i = idx - 1; i >= 0; i--) {
+    const m = messages.value[i]
+    if (m?.role === 'user') {
+      const q = (m?.content ?? '').trim()
+      if (q) return q
+    }
+  }
+  return ''
+}
+
 function shareAiToCommunity() {
   const text = getLastAssistantContent()
   if (!text) {
@@ -446,7 +471,8 @@ function shareAiToCommunity() {
     shareTipVisible.value = true
     return
   }
-  shareTextToCommunity(text, 'AI助手')
+  // title 传最近的用户提问，后端提取不到标题时用它兜底
+  shareTextToCommunity(text, getLastUserQuestion())
 }
 
 function shareAiContent(msg) {
@@ -456,7 +482,8 @@ function shareAiContent(msg) {
     shareTipVisible.value = true
     return
   }
-  shareTextToCommunity(text, 'AI助手')
+  // title 传该回复对应的用户提问，后端提取不到标题时用它兜底
+  shareTextToCommunity(text, findPrecedingUserQuestion(msg))
 }
 
 function assistantReplyExportTarget(editorId, bubble) {
@@ -545,7 +572,7 @@ function shareTextToCommunity(text, title) {
   shareLoading.value = true
   shareTipText.value = '正在分享到社区...'
   shareTipVisible.value = true
-  ShareText(text, title)
+  ShareText(text, title || '')
     .then((msg) => {
       shareTipText.value = msg
       shareTipVisible.value = true
@@ -1200,6 +1227,7 @@ watch(aiConfigId, (newId) => {
 .msg-content .msg-markdown :deep(.md-editor-preview) {
   font-size: 13px;
   line-height: 1.6;
+  padding: 0 8px;
 }
 .message-item.user .msg-content :deep(.md-editor-preview),
 .message-item.user .msg-content :deep(.md-editor-preview-wrapper) {

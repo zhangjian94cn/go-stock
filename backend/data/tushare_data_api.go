@@ -22,7 +22,7 @@ type TushareApi struct {
 
 func NewTushareApi(config *SettingConfig) *TushareApi {
 	return &TushareApi{
-		client: resty.New(),
+		client: SharedHTTPClient,
 		config: config,
 	}
 }

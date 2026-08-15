@@ -7,8 +7,6 @@ import (
 	"go-stock/backend/models"
 	"go-stock/backend/util"
 	"time"
-
-	"github.com/go-resty/resty/v2"
 )
 
 type MarketStatisticApi struct {
@@ -64,7 +62,7 @@ type clsUpDownDis struct {
 func (a *MarketStatisticApi) FetchAndSave() error {
 	url := "https://x-quote.cls.cn/quote/index/home?app=CailianpressWeb&os=web&sv=8.4.6"
 
-	resp, err := resty.New().R().
+	resp, err := SharedHTTPClient.R().
 		SetHeader("User-Agent", util.GetUserAgent()).
 		SetHeader("Referer", "https://www.cls.cn/").
 		Get(url)

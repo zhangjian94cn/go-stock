@@ -7,7 +7,8 @@
       :title="hasBackgroundTask ? 'go-stock AI Agent 助手正在后台分析...' : 'go-stock AI Agent 助手'"
     >
       <div class="edge-trigger-inner">
-        <NIcon :component="SparklesOutline" size="22" />
+        <NIcon :component="SparklesOutline" size="18" />
+        <span class="edge-trigger-text">AI助手</span>
         <div v-if="hasBackgroundTask" class="edge-trigger-badge" />
       </div>
     </div>
@@ -21,7 +22,7 @@
           size="small"
           class="panel-card"
           :bordered="false"
-          content-style="padding: 0; display: flex; flex-direction: column; height: 100%;"
+          content-style="padding: 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden;"
         >
           <template #header>
             <div class="panel-header">
@@ -44,7 +45,10 @@
             </div>
           </template>
 
-          <div class="chat-body">
+            <div class="chat-body">
+            <Transition name="hint-fade">
+              <div v-if="hintVisible" class="hint-bar">{{ hintText }}</div>
+            </Transition>
             <div v-if="shareTipVisible" class="share-tip">
               <div class="share-tip-text">{{ shareTipText }}</div>
               <NButton size="tiny" quaternary class="share-tip-close" @click="shareTipVisible = false">关闭</NButton>
@@ -67,6 +71,9 @@
                     <div
                       :class="['message-item', group.userMsg.role]"
                     >
+                      <div class="msg-avatar user-avatar">
+                        <NIcon :component="PersonCircleOutline" size="18" />
+                      </div>
                       <div class="msg-bubble">
                         <div class="msg-content">
                           <div v-if="group.userMsg.time" class="msg-meta msg-meta-user-inner">
@@ -81,9 +88,6 @@
                             class="msg-markdown"
                           />
                         </div>
-                      </div>
-                      <div class="msg-avatar user-avatar">
-                        <NIcon :component="PersonCircleOutline" size="20" />
                       </div>
                     </div>
                     <div
@@ -168,6 +172,9 @@
                               </template>
                               复制
                             </NButton>
+                            <NButton v-if="!group.assistantMsg.feedback" quaternary size="tiny" class="msg-feedback-btn" title="这个回答有用" @click="submitFeedback(group, 1)">👍</NButton>
+                            <NButton v-if="!group.assistantMsg.feedback" quaternary size="tiny" class="msg-feedback-btn" title="这个回答没用" @click="submitFeedback(group, -1)">👎</NButton>
+                            <span v-else class="msg-feedback-done">{{ group.assistantMsg.feedback === 1 ? '👍' : '👎' }}</span>
                             <NButton
                               quaternary
                               size="tiny"
@@ -195,6 +202,7 @@
                 </div>
               </div>
             </NScrollbar>
+            </div>
 
             <div class="chat-footer">
               <div class="chat-footer-row">
@@ -215,6 +223,7 @@
                   :options="sysPromptOptions"
                   size="small"
                   clearable
+                  :disabled="sysPromptDisabled"
                   to="body"
                   placement="top-start"
                   placeholder="系统提示词"
@@ -268,13 +277,33 @@
                   />
                 </div>
               </div>
-              <div class="chat-footer-input">
+              <div v-if="selectedSkillDir" class="chat-footer-skill-tag">
+                <NTag type="info" size="small" closable @close="clearSkill">
+                  🎯 {{ selectedSkillName }}
+                </NTag>
+              </div>
+              <div class="chat-footer-input" style="position: relative;">
+                <div v-if="skillMenuVisible && filteredSkills.length" class="skill-menu" :class="{ dark: darkTheme }">
+                  <div
+                    v-for="(s, i) in filteredSkills"
+                    :key="s.id"
+                    class="skill-menu-item"
+                    :class="{ active: i === skillMenuIndex }"
+                    @click="skillMenuIndex = i; selectSkillFromMenu()"
+                    @mouseenter="skillMenuIndex = i"
+                  >
+                    <span class="skill-menu-name">🎯 {{ s.name }}</span>
+                    <span class="skill-menu-desc">{{ s.description }}</span>
+                  </div>
+                </div>
                 <NInput
                   v-model:value="inputValue"
                   type="textarea"
-                  placeholder="输入消息，回车发送..."
+                  placeholder="输入消息，回车发送... 输入 / 选择技能"
                   :autosize="{ minRows: 2, maxRows: 4 }"
                   :disabled="isStreamLoad"
+                  @update:value="checkSlashCommand"
+                  @keydown="handleInputKeydown"
                   @keydown.enter.exact.prevent="sendMessage"
                 />
                 <NButton
@@ -296,17 +325,40 @@
                 </NButton>
               </div>
             </div>
-          </div>
         </NCard>
       </div>
     </div>
   </Transition>
+
+  <NModal
+    v-model:show="klineModalShow"
+    :title="(klineName || klineCode || '') + ' — 多周期K线'"
+    preset="card"
+    :z-index="10010"
+    style="width: min(1100px, 96vw); max-width: 96vw; box-sizing: border-box"
+    :content-style="{
+      maxHeight: 'min(85vh, 820px)',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      minWidth: 0,
+      boxSizing: 'border-box',
+    }"
+  >
+    <StockLightweightKlineChart
+      v-if="klineModalShow"
+      :key="'agent-kline-' + klineCode"
+      :code="klineCode"
+      :stock-name="klineName"
+      :dark-theme="darkTheme"
+      :chart-height="500"
+    />
+  </NModal>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount, onBeforeMount } from 'vue'
 import { useRoute } from 'vue-router'
-import { NButton, NCard, NIcon, NInput, NScrollbar, NSelect, NSpin, NSwitch, useMessage } from 'naive-ui'
+import { NButton, NCard, NIcon, NInput, NModal, NScrollbar, NSelect, NSpin, NSwitch, useMessage } from 'naive-ui'
 import {
   CloseOutline,
   SparklesOutline,
@@ -320,8 +372,10 @@ import {
 } from '@vicons/ionicons5'
 import {
   ChatWithAgent,
+  ListFilesystemSkills,
   GetAiConfigs,
   GetConfig,
+  GetFollowList,
   GetPromptTemplates,
   GetSponsorInfo,
   SaveAiAssistantSession,
@@ -329,14 +383,43 @@ import {
   ShareText,
   AbortChatWithAgent,
   SaveAIResponseResult,
-  SaveImage
+  SaveImage,
+  SubmitAgentFeedback
 } from '../../wailsjs/go/main/App'
+import { models } from '../../wailsjs/go/models'
 import { EventsOff, EventsOn } from '../../wailsjs/runtime'
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
 import html2canvas from 'html2canvas'
+import StockLightweightKlineChart from './StockLightweightKlineChart.vue'
 
 const STORAGE_KEY_MODEL_ID = 'go-stock-agent-last-model-id'
+const STORAGE_KEY_SYS_PROMPT_ID = 'go-stock-agent-last-sys-prompt-id'
+const STORAGE_KEY_USER_PROMPT_ID = 'go-stock-agent-last-user-prompt-id'
+const STORAGE_KEY_THINKING_MODE = 'go-stock-agent-thinking-mode'
+const STORAGE_KEY_MEMORY_MODE = 'go-stock-agent-memory-mode'
+const STORAGE_KEY_MEMORY_COUNT = 'go-stock-agent-memory-count'
+const STORAGE_KEY_AGENT_MODE = 'go-stock-agent-mode'
+const STORAGE_KEY_SKILL_ID = 'go-stock-agent-skill-id'
+
+// 从 localStorage 读取布尔值，默认 fallback
+function loadBool(key, fallback) {
+  const v = localStorage.getItem(key)
+  if (v === null) return fallback
+  return v === 'true'
+}
+function loadNum(key, fallback) {
+  const v = localStorage.getItem(key)
+  if (v === null || v === '') return fallback
+  const n = Number(v)
+  return Number.isNaN(n) ? fallback : n
+}
+// 校验缓存的 select 值是否在 options 中有效
+function validateOption(value, options) {
+  if (value == null) return null
+  const isValid = options.some(o => o.value === value)
+  return isValid ? value : null
+}
 
 const route = useRoute()
 const message = useMessage()
@@ -367,14 +450,36 @@ const sysPromptOptions = computed(() =>
 )
 const sysPromptId = ref(null)
 
+// 技能选择（/ 斜杠指令）：选中技能后用技能 SKILL.md 内容覆盖系统提示词
+const skills = ref([])
+const selectedSkillDir = ref('')
+const selectedSkillName = computed(() => {
+  if (!selectedSkillDir.value) return ''
+  const s = skills.value.find(x => x.dirName === selectedSkillDir.value)
+  return s ? s.name : ''
+})
+// 技能菜单浮层状态
+const skillMenuVisible = ref(false)
+const skillMenuIndex = ref(0)
+const skillFilterText = ref('')
+// 过滤后的技能列表
+const filteredSkills = computed(() => {
+  const kw = skillFilterText.value.trim().toLowerCase()
+  if (!kw) return skills.value
+  return skills.value.filter(s =>
+    s.name.toLowerCase().includes(kw) || (s.description || '').toLowerCase().includes(kw)
+  )
+})
+const sysPromptDisabled = computed(() => !!selectedSkillDir.value)
+
 const userPromptTemplates = ref([])
 const userPromptOptions = computed(() =>
   userPromptTemplates.value.map(t => ({ label: t.name ?? '', value: t.ID ?? t.id }))
 )
 const userPromptId = ref(null)
-const thinkingMode = ref(false)
-const memoryMode = ref(true)
-const memoryCount = ref(3)
+const thinkingMode = ref(loadBool(STORAGE_KEY_THINKING_MODE, true))
+const memoryMode = ref(loadBool(STORAGE_KEY_MEMORY_MODE, false))
+const memoryCount = ref(loadNum(STORAGE_KEY_MEMORY_COUNT, 1))
 const memoryCountOptions = [
   { label: '1 条', value: 1 },
   { label: '2 条', value: 2 },
@@ -383,12 +488,36 @@ const memoryCountOptions = [
   { label: '5 条', value: 5 },
   { label: '10 条', value: 10 },
 ]
-const agentMode = ref('auto')
+const agentMode = ref(localStorage.getItem(STORAGE_KEY_AGENT_MODE) || 'plan_execute')
 const agentModeOptions = [
   { label: '🤖 自动选择', value: 'auto' },
   { label: '⚡ 快速模式', value: 'react' },
   { label: '🧠 规划模式', value: 'plan_execute' },
+  { label: '🔬 DeepAgents', value: 'deepagents' },
 ]
+
+watch(agentMode, (val) => {
+  if (val === 'react') showHint('⚡ 快速模式推荐使用DeepSeek最新版')
+  else if (val === 'plan_execute') showHint('🧠 规划模式推荐使用GLM最新版')
+  else if (val === 'deepagents') showHint('🔬 DeepAgents 模式内置任务规划与子Agent委派，适合复杂多步分析，推荐使用Claude/GLM最新版')
+})
+
+watch(aiConfigId, (val) => {
+  // 默认使用规划模式，不因模型切换而改变 agentMode
+  const label = modelLabelForConfig(val).toLowerCase()
+  const labelCompact = label.replace(/[\s_-]/g, '')
+  if (label.includes('deepseek-chat')) {
+    thinkingMode.value = false
+    showHint('deepseek-chat 不支持思考模式已关闭，当前使用规划模式')
+  } else if (labelCompact.includes('glm5.1')) {
+    thinkingMode.value = true
+    showHint('GLM 5.1 已开启思考模式，当前使用规划模式')
+  } else if (label.includes('deepseek')) {
+    showHint('⚡ DeepSeek 当前使用规划模式')
+  } else if (label.includes('glm')) {
+    showHint('🧠 GLM 当前使用规划模式')
+  }
+})
 
 function onUserPromptChange(id) {
   if (!id) return
@@ -403,6 +532,16 @@ const shareLoading = ref(false)
 const exportImageKey = ref('')
 const shareTipVisible = ref(false)
 const shareTipText = ref('')
+const hintVisible = ref(false)
+const hintText = ref('')
+let hintTimer = null
+
+function showHint(text) {
+  hintText.value = text
+  hintVisible.value = true
+  if (hintTimer) clearTimeout(hintTimer)
+  hintTimer = setTimeout(() => { hintVisible.value = false }, 3000)
+}
 const vipLevel = ref(0)
 const vipLoaded = ref(false)
 const vipLoading = ref(false)
@@ -478,8 +617,10 @@ function toggleReasoning(index) {
 }
 
 function getStepDotClass(step) {
+  if (step.includes('🎯')) return 'step-skill'
   if (step.includes('✅')) return 'step-done'
   if (step.includes('🔧')) return 'step-tool'
+  if (step.includes('📝')) return 'step-todos'
   if (step.includes('⚡') || step.includes('🧠') || step.includes('📋') || step.includes('🔄')) return 'step-active'
   return ''
 }
@@ -507,7 +648,250 @@ function onMdHtmlChanged() {
       })
       block.appendChild(btn)
     })
+    linkifyStocksInPreview()
   })
+}
+
+// ===== 股票代码/名称识别与可点击链接 =====
+const klineModalShow = ref(false)
+const klineCode = ref('')
+const klineName = ref('')
+/** 自选股票 名称 → 内部代码 映射，用于 AI 输出中识别股票名称 */
+const followListNameMap = ref(new Map())
+
+// 匹配股票代码：带显式前缀/后缀的代码（高置信度）+ 6位 A 股代码（首位 6/0/3/8/9）
+// 注意：\d{6}\.(?:SH|SZ|BJ) 必须排在 [60389]\d{5} 之前，否则会先匹配纯数字部分
+const STOCK_CODE_REGEX = /\b(?:(?:sh|sz|bj)\d{6}|\d{6}\.(?:SH|SZ|BJ)|hk\d{4,5}|\d{4,5}\.HK|gb_[a-zA-Z]{1,6}|[A-Z]{1,6}\.US|\d{4,6}\.CSI|100\.[A-Z]+|[60389]\d{5})\b/g
+
+/** 将各类股票代码归一化为东方财富格式（如 600519.SH / 00700.HK / AAPL.US），与 stock.vue 一致 */
+function toEastMoneyCode(code) {
+  if (!code) return ''
+  const c = String(code).trim()
+  if (/\.(SH|SZ|BJ|HK|US|SS|CSI)$/i.test(c)) return c.toUpperCase()
+  if (/^100\.[A-Za-z]+$/.test(c)) return c.toUpperCase()
+  const lower = c.toLowerCase()
+  if (lower.startsWith('sh')) return lower.slice(2) + '.SH'
+  if (lower.startsWith('sz')) return lower.slice(2) + '.SZ'
+  if (lower.startsWith('bj')) return lower.slice(2) + '.BJ'
+  if (lower.startsWith('hk')) return lower.slice(2).toUpperCase() + '.HK'
+  if (lower.startsWith('us')) return lower.slice(2).toUpperCase() + '.US'
+  if (lower.startsWith('gb_')) return lower.slice(3).toUpperCase() + '.US'
+  if (/^\d+$/.test(c)) {
+    const d = c[0]
+    if (d === '6') return c + '.SH'
+    if (d === '0' || d === '3') return c + '.SZ'
+    if (d === '8' || d === '9') return c + '.BJ'
+    return c + '.SZ'
+  }
+  if (/^[a-zA-Z]+$/.test(c)) return c.toUpperCase() + '.US'
+  return ''
+}
+
+/** 从正则匹配的字符串中提取用于 toEastMoneyCode 的输入 */
+function parseStockCodeMatch(matched) {
+  return matched.trim()
+}
+
+/** 根据代码反查股票名称（来自自选列表） */
+function nameForCode(code) {
+  for (const [name, fc] of followListNameMap.value) {
+    if (fc === code) return name
+  }
+  return ''
+}
+
+/** 加载自选列表，构建 名称 → 代码 映射，用于识别 AI 输出中的股票名称 */
+async function loadFollowListForLinks() {
+  try {
+    const list = await GetFollowList(0)
+    const map = new Map()
+    ;(list || []).forEach(item => {
+      const name = item.StockName || item.stockName || ''
+      const code = item.StockCode || item.stockCode || ''
+      if (name && code && name.length >= 2) {
+        map.set(name, code)
+      }
+    })
+    followListNameMap.value = map
+    // 自选列表加载完成后，对已渲染的消息补做一次股票名称链接
+    nextTick(() => linkifyStocksInPreview())
+  } catch (_) {
+    // 静默失败
+  }
+}
+
+/** 打开多周期 K 线模态框 */
+function openStockKline(rawCode, name) {
+  const em = toEastMoneyCode(rawCode)
+  if (!em) {
+    message.warning('当前代码暂不支持K线图')
+    return
+  }
+  klineCode.value = em
+  klineName.value = name || ''
+  klineModalShow.value = true
+}
+
+/** 扫描 MdPreview 渲染后的文本节点，将股票代码/名称替换为可点击 <a> 标签 */
+function linkifyStocksInPreview() {
+  const previews = document.querySelectorAll('.msg-markdown .md-editor-preview')
+  if (!previews.length) return
+
+  // 基于自选列表构建名称匹配正则
+  const names = [...followListNameMap.value.keys()]
+  let nameRegex = null
+  if (names.length > 0) {
+    const escaped = names
+      .filter(n => n && n.length >= 2)
+      .sort((a, b) => b.length - a.length)
+      .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    if (escaped.length > 0) {
+      nameRegex = new RegExp(escaped.join('|'), 'g')
+    }
+  }
+
+  previews.forEach(preview => {
+    const walker = document.createTreeWalker(
+      preview,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue || !node.nodeValue.trim()) {
+            return NodeFilter.FILTER_REJECT
+          }
+          let el = node.parentNode
+          while (el && el !== preview) {
+            const tag = el.tagName ? el.tagName.toLowerCase() : ''
+            // 跳过链接、代码块、pre 内的文本
+            if (tag === 'a' || tag === 'code' || tag === 'pre' || tag === 'script' || tag === 'style') {
+              return NodeFilter.FILTER_REJECT
+            }
+            // 跳过已注入的 stock-link 内部文本
+            if (el.classList && el.classList.contains('stock-link')) {
+              return NodeFilter.FILTER_REJECT
+            }
+            el = el.parentNode
+          }
+          return NodeFilter.FILTER_ACCEPT
+        }
+      }
+    )
+
+    const textNodes = []
+    while (walker.nextNode()) {
+      textNodes.push(walker.currentNode)
+    }
+
+    for (const textNode of textNodes) {
+      linkifyTextNode(textNode, nameRegex)
+    }
+
+    // 处理 md-editor-v3 linkify 自动生成的 <a> 链接（如 600114.SH 被识别为域名）
+    // 这些链接的 textContent 就是股票代码，href 为 http://代码 或代码本身
+    const autoLinks = preview.querySelectorAll('a:not(.stock-link)')
+    autoLinks.forEach(a => {
+      const text = (a.textContent || '').trim()
+      if (!text) return
+      STOCK_CODE_REGEX.lastIndex = 0
+      const match = STOCK_CODE_REGEX.exec(text)
+      if (!match || match[0] !== text) return
+      // 仅处理 linkify 自动链接（href 为代码本身或 http://代码），保留用户真实 markdown 链接
+      const href = a.getAttribute('href') || ''
+      const code = parseStockCodeMatch(text)
+      const isAutoLink = href === text || href === 'http://' + text || href === 'https://' + text
+      if (!isAutoLink) return
+      const name = nameForCode(code)
+      a.classList.add('stock-link')
+      a.dataset.code = code
+      if (name) a.dataset.name = name
+      a.removeAttribute('href')
+      a.title = '点击查看 ' + text + ' K线图'
+      a.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        openStockKline(code, name)
+      })
+    })
+  })
+}
+
+/** 将单个文本节点中的股票代码/名称替换为 <a> 标签 */
+function linkifyTextNode(textNode, nameRegex) {
+  const text = textNode.nodeValue
+  if (!text) return
+
+  const matches = []
+
+  STOCK_CODE_REGEX.lastIndex = 0
+  let m
+  while ((m = STOCK_CODE_REGEX.exec(text)) !== null) {
+    const matched = m[0]
+    const code = parseStockCodeMatch(matched)
+    matches.push({
+      index: m.index,
+      length: matched.length,
+      text: matched,
+      code,
+      name: nameForCode(code)
+    })
+  }
+
+  if (nameRegex) {
+    nameRegex.lastIndex = 0
+    while ((m = nameRegex.exec(text)) !== null) {
+      const matched = m[0]
+      const code = followListNameMap.value.get(matched)
+      if (code) {
+        matches.push({
+          index: m.index,
+          length: matched.length,
+          text: matched,
+          code,
+          name: matched
+        })
+      }
+    }
+  }
+
+  if (matches.length === 0) return
+
+  // 按位置排序，去除重叠（保留先出现的）
+  matches.sort((a, b) => a.index - b.index)
+  const filtered = []
+  let lastEnd = -1
+  for (const match of matches) {
+    if (match.index >= lastEnd) {
+      filtered.push(match)
+      lastEnd = match.index + match.length
+    }
+  }
+
+  // 用 DocumentFragment 替换原文本节点：保留纯文本 + 插入 <a> 链接
+  const fragment = document.createDocumentFragment()
+  let lastIdx = 0
+  for (const match of filtered) {
+    if (match.index > lastIdx) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIdx, match.index)))
+    }
+    const a = document.createElement('a')
+    a.className = 'stock-link'
+    a.textContent = match.text
+    a.dataset.code = match.code
+    if (match.name) a.dataset.name = match.name
+    a.title = '点击查看 ' + match.text + ' K线图'
+    a.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      openStockKline(match.code, match.name)
+    })
+    fragment.appendChild(a)
+    lastIdx = match.index + match.length
+  }
+  if (lastIdx < text.length) {
+    fragment.appendChild(document.createTextNode(text.slice(lastIdx)))
+  }
+
+  textNode.parentNode.replaceChild(fragment, textNode)
 }
 
 async function copyAiContent(msg) {
@@ -536,12 +920,35 @@ async function copyAiContent(msg) {
   }
 }
 
+// 提交对某条回答的反馈（👍/👎），group 含 userMsg(问题) 与 assistantMsg(回答)
+function submitFeedback(group, rating) {
+  const question = group.userMsg?.content ?? ''
+  const response = group.assistantMsg?.rawContent || group.assistantMsg?.content || ''
+  const fb = models.AgentFeedback.createFrom({
+    sessionId: sessionId.value,
+    question: question,
+    response: response,
+    rating: rating,
+    reason: '',
+    mode: agentMode.value === 'auto' ? '' : agentMode.value,
+  })
+  SubmitAgentFeedback(fb)
+    .then(() => {
+      if (group.assistantMsg) group.assistantMsg.feedback = rating
+      message.success(rating === 1 ? '感谢反馈，我会继续优化' : '已收到，我会改进')
+    })
+    .catch((e) => {
+      console.error('submit feedback error', e)
+    })
+}
+
 function shareTextToCommunity(text, title) {
   if (shareLoading.value) return
   shareLoading.value = true
   shareTipText.value = '正在分享到社区...'
   shareTipVisible.value = true
-  ShareText(text, title)
+  // title 传用户提问；后端优先从正文提取标题，提取不到时用 title 兜底
+  ShareText(text, title || '')
     .then((msg) => {
       shareTipText.value = msg
       shareTipVisible.value = true
@@ -555,6 +962,20 @@ function shareTextToCommunity(text, title) {
     })
 }
 
+function findPrecedingUserQuestion(assistantMsg) {
+  if (!assistantMsg) return ''
+  const idx = messages.value.indexOf(assistantMsg)
+  if (idx < 0) return ''
+  for (let i = idx - 1; i >= 0; i--) {
+    const m = messages.value[i]
+    if (m?.role === 'user') {
+      const q = (m?.content ?? '').trim()
+      if (q) return q
+    }
+  }
+  return ''
+}
+
 function shareAiContent(msg) {
   const text = (msg?.content ?? '').trim()
   if (!text) {
@@ -562,7 +983,8 @@ function shareAiContent(msg) {
     shareTipVisible.value = true
     return
   }
-  shareTextToCommunity(text, 'go-stock AI Agent助手')
+  // title 传该回复对应的用户提问，后端提取不到标题时用它兜底
+  shareTextToCommunity(text, findPrecedingUserQuestion(msg))
 }
 
 function getLastAssistantContent() {
@@ -576,6 +998,17 @@ function getLastAssistantContent() {
   return ''
 }
 
+function getLastUserQuestion() {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    const m = messages.value[i]
+    if (m?.role === 'user') {
+      const q = (m?.content ?? '').trim()
+      if (q) return q
+    }
+  }
+  return ''
+}
+
 function shareAiToCommunity() {
   const text = getLastAssistantContent()
   if (!text) {
@@ -583,7 +1016,8 @@ function shareAiToCommunity() {
     shareTipVisible.value = true
     return
   }
-  shareTextToCommunity(text, 'go-stock AI Agent助手')
+  // title 传最近的用户提问，后端提取不到标题时用它兜底
+  shareTextToCommunity(text, getLastUserQuestion())
 }
 
 async function exportAiReplyImage(assistantIndex, evt) {
@@ -747,6 +1181,8 @@ function openPanel() {
       }
     ]
   }
+  // 加载自选列表用于 AI 输出中识别股票名称
+  loadFollowListForLinks()
   nextTick(() => {
     initDefaultExpanded()
     scrollToBottom()
@@ -840,7 +1276,7 @@ function sendMessage() {
     }
     scrollToBottom()
   })
-  ChatWithAgent(text, configId, sysPromptId.value, memoryMode.value, memoryCount.value, thinkingMode.value, agentMode.value === 'auto' ? '' : agentMode.value)
+  ChatWithAgent(text, configId, selectedSkillDir.value ? null : sysPromptId.value, memoryMode.value, memoryCount.value, thinkingMode.value, agentMode.value === 'auto' ? '' : agentMode.value, sessionId.value, selectedSkillDir.value)
 }
 
 function startNewChat() {
@@ -1141,12 +1577,97 @@ function loadPromptTemplates() {
     const list = Array.isArray(res) ? res : []
     sysPromptTemplates.value = list.filter(t => t.type === '模型系统Prompt')
     userPromptTemplates.value = list.filter(t => t.type === '模型用户Prompt')
+    // 恢复缓存的提示词选择（仅在尚未选择时恢复，避免覆盖用户当前会话的改动）
+    if (sysPromptId.value == null) {
+      const cachedSys = localStorage.getItem(STORAGE_KEY_SYS_PROMPT_ID)
+      if (cachedSys) {
+        const id = Number(cachedSys)
+        sysPromptId.value = validateOption(id, sysPromptOptions.value)
+      }
+    }
+    if (userPromptId.value == null) {
+      const cachedUser = localStorage.getItem(STORAGE_KEY_USER_PROMPT_ID)
+      if (cachedUser) {
+        const id = Number(cachedUser)
+        const valid = validateOption(id, userPromptOptions.value)
+        if (valid != null) {
+          userPromptId.value = valid
+          // 自动填充输入框内容（与 onUserPromptChange 行为一致）
+          onUserPromptChange(valid)
+        }
+      }
+    }
   })
+}
+
+// 加载技能列表并恢复缓存选择（与技能管理页面同源：文件系统技能）
+function loadSkills() {
+  ListFilesystemSkills().then(res => {
+    skills.value = Array.isArray(res) ? res : []
+    if (!selectedSkillDir.value) {
+      const cached = localStorage.getItem(STORAGE_KEY_SKILL_ID)
+      if (cached && skills.value.some(s => s.dirName === cached)) {
+        selectedSkillDir.value = cached
+      }
+    }
+  }).catch(() => {})
+}
+
+// 清除已选技能
+function clearSkill() {
+  selectedSkillDir.value = ''
+  localStorage.removeItem(STORAGE_KEY_SKILL_ID)
+}
+
+// 检测输入框内容是否为 / 斜杠指令
+function checkSlashCommand(val) {
+  // 匹配：行首 / 后跟可选过滤词（不含空格）
+  const m = val.match(/^\s*\/([^\s]*)$/)
+  if (m) {
+    skillFilterText.value = m[1]
+    skillMenuVisible.value = true
+    skillMenuIndex.value = 0
+  } else {
+    skillMenuVisible.value = false
+  }
+}
+
+// 处理输入框按键：技能菜单可见时拦截导航键
+function handleInputKeydown(e) {
+  if (skillMenuVisible.value && filteredSkills.value.length > 0) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      skillMenuIndex.value = (skillMenuIndex.value + 1) % filteredSkills.value.length
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      skillMenuIndex.value = (skillMenuIndex.value - 1 + filteredSkills.value.length) % filteredSkills.value.length
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      selectSkillFromMenu()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      skillMenuVisible.value = false
+    }
+  }
+}
+
+// 从浮层选中技能
+function selectSkillFromMenu() {
+  const skill = filteredSkills.value[skillMenuIndex.value]
+  if (!skill) return
+  selectedSkillDir.value = skill.dirName
+  localStorage.setItem(STORAGE_KEY_SKILL_ID, skill.dirName)
+  // 移除输入框中的 /xxx 文本
+  inputValue.value = inputValue.value.replace(/^\s*\/[^\s]*\s*/, '')
+  skillMenuVisible.value = false
+  showHint(`已选择技能「${skill.name}」，将忽略系统提示词`)
 }
 
 watch(panelVisible, (v) => {
   if (v) {
     loadPromptTemplates()
+    loadSkills()
     nextTick(scrollToBottom)
   }
 })
@@ -1191,6 +1712,20 @@ watch(aiConfigId, (newId) => {
   }
 })
 
+// 持久化其余执行参数，避免用户每次重新选择
+watch(sysPromptId, (v) => {
+  if (v != null) localStorage.setItem(STORAGE_KEY_SYS_PROMPT_ID, String(v))
+})
+watch(userPromptId, (v) => {
+  if (v != null) localStorage.setItem(STORAGE_KEY_USER_PROMPT_ID, String(v))
+})
+watch(thinkingMode, (v) => localStorage.setItem(STORAGE_KEY_THINKING_MODE, String(v)))
+watch(memoryMode, (v) => localStorage.setItem(STORAGE_KEY_MEMORY_MODE, String(v)))
+watch(memoryCount, (v) => localStorage.setItem(STORAGE_KEY_MEMORY_COUNT, String(v)))
+watch(agentMode, (v) => {
+  if (v) localStorage.setItem(STORAGE_KEY_AGENT_MODE, v)
+})
+
 onBeforeUnmount(() => {
   EventsOff(AGENT_EVENT)
 })
@@ -1225,8 +1760,17 @@ onBeforeUnmount(() => {
 .edge-trigger-inner {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+}
+.edge-trigger-text {
+  font-size: 14px;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  line-height: 1;
+  white-space: nowrap;
 }
 .edge-trigger-badge {
   position: absolute;
@@ -1315,6 +1859,28 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  position: relative;
+}
+.hint-bar {
+  flex-shrink: 0;
+  margin: 10px 16px 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.12) 0%, rgba(118, 75, 162, 0.12) 100%);
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  font-size: 13px;
+  color: var(--n-text-color-2);
+  text-align: center;
+  line-height: 1.5;
+}
+.hint-fade-enter-active,
+.hint-fade-leave-active {
+  transition: opacity 0.3s, transform 0.3s;
+}
+.hint-fade-enter-from,
+.hint-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 .share-tip {
   flex-shrink: 0;
@@ -1347,7 +1913,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 .chat-scroll :deep(.n-scrollbar-content) {
-  flex: 1;
   min-height: 0;
 }
 .message-list {
@@ -1401,15 +1966,16 @@ onBeforeUnmount(() => {
 }
 .message-item {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   align-items: flex-start;
 }
 .message-item.user {
-  justify-content: flex-end;
+  align-items: flex-end;
 }
 .msg-avatar {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1428,11 +1994,9 @@ onBeforeUnmount(() => {
 }
 .msg-bubble {
   max-width: 100%;
-  flex: 1;
-  min-width: 0;
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 14px;
+  padding: 8px 10px;
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.5;
@@ -1549,6 +2113,24 @@ onBeforeUnmount(() => {
   background: #67c23a;
   box-shadow: 0 0 4px rgba(103, 194, 58, 0.4);
 }
+.msg-step-dot.step-skill {
+  background: #9c27b0;
+  box-shadow: 0 0 6px rgba(156, 39, 176, 0.6);
+}
+/* 技能激活步骤的文字高亮（紫色加粗，与 dot 颜色呼应） */
+.msg-step-dot.step-skill + .msg-step-text {
+  color: #9c27b0;
+  font-weight: 600;
+}
+.msg-step-dot.step-todos {
+  background: #009688;
+  box-shadow: 0 0 6px rgba(0, 150, 136, 0.5);
+}
+/* 任务清单更新步骤的文字高亮（青色加粗） */
+.msg-step-dot.step-todos + .msg-step-text {
+  color: #009688;
+  font-weight: 600;
+}
 .msg-step-text {
   flex: 1;
   min-width: 0;
@@ -1612,7 +2194,7 @@ onBeforeUnmount(() => {
 }
 .msg-json-md-content {
   padding: 12px;
-  max-height: 500px;
+  max-height: 300px;
   overflow-y: auto;
   text-align: left;
 }
@@ -1633,6 +2215,15 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   align-items: center;
   margin-top: 8px;
+}
+.msg-feedback-btn {
+  font-size: 13px;
+  padding: 0 6px;
+}
+.msg-feedback-done {
+  font-size: 13px;
+  opacity: 0.75;
+  margin-left: 2px;
 }
 .msg-meta-row-assistant {
   flex: 1 1 100%;
@@ -1695,9 +2286,15 @@ onBeforeUnmount(() => {
   min-width: 0;
   box-sizing: border-box;
 }
+.msg-content .msg-markdown :deep(.md-editor-preview-wrapper) {
+  width: 100%;
+}
 .msg-content .msg-markdown :deep(.md-editor-preview) {
   font-size: 13px;
   line-height: 1.6;
+  padding: 0 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .message-item.user .msg-content :deep(.md-editor-preview),
 .message-item.user .msg-content :deep(.md-editor-preview-wrapper) {
@@ -1739,7 +2336,8 @@ onBeforeUnmount(() => {
 .chat-footer-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .chat-footer-select {
   flex: 1;
@@ -1780,6 +2378,54 @@ onBeforeUnmount(() => {
 .chat-footer-memory-count .n-select {
   width: 100%;
 }
+.chat-footer-skill-tag {
+  padding: 0 2px 4px;
+}
+.skill-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e0e0e6;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .15);
+  z-index: 10003;
+  margin-bottom: 4px;
+}
+.skill-menu.dark {
+  background: #18181c;
+  border-color: #333;
+}
+.skill-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.skill-menu-item:hover,
+.skill-menu-item.active {
+  background: #f5f5f5;
+}
+.skill-menu.dark .skill-menu-item:hover,
+.skill-menu.dark .skill-menu-item.active {
+  background: #2a2a2e;
+}
+.skill-menu-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+.skill-menu-desc {
+  font-size: 11px;
+  opacity: .6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .chat-footer-input {
   display: flex;
   gap: 8px;
@@ -1787,6 +2433,7 @@ onBeforeUnmount(() => {
 }
 .chat-footer-input .n-input {
   flex: 1;
+  min-width: 0;
 }
 .chat-footer-input .n-input :deep(textarea) {
   text-align: left;
@@ -1876,5 +2523,20 @@ body > div:has(.n-select-menu) {
   height: 40px;
   background: linear-gradient(transparent, var(--n-color));
   pointer-events: none;
+}
+
+/* AI 输出中的股票代码/名称可点击链接 */
+.msg-markdown .md-editor-preview a.stock-link {
+  color: var(--n-primary-color, #18a058);
+  text-decoration: none;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--n-primary-color, #18a058);
+  padding: 0 1px;
+  transition: color 0.15s, background-color 0.15s, border-bottom-style 0.15s;
+}
+.msg-markdown .md-editor-preview a.stock-link:hover {
+  color: #fff;
+  background-color: var(--n-primary-color, #18a058);
+  border-bottom-style: solid;
 }
 </style>

@@ -12,6 +12,12 @@ import TradingRecordManager from "./TradingRecordManager.vue";
 import StockChangesMonitor from "./stockChangesMonitor.vue";
 import MCPServiceManager from "./mcp-server-manager.vue";
 import SkillManager from "./skill-manager.vue";
+import UplimitLadder from "./uplimitLadder.vue";
+import PromptPlaza from "./promptPlaza.vue";
+import PromptQa from "./promptQa.vue";
+import SelectStock from "./SelectStock.vue";
+import DailyOperationPlan from "./DailyOperationPlan.vue";
+import KnowledgeBaseManager from "./knowledge-base-manager.vue";
 import {EventsOff, EventsOn} from "../../wailsjs/runtime";
 import {useRoute} from 'vue-router'
 
@@ -51,11 +57,23 @@ function updateTab(name) {
       <n-tab-pane name="异动监控">
         <StockChangesMonitor/>
       </n-tab-pane>
+      <n-tab-pane name="涨停梯队">
+        <UplimitLadder/>
+      </n-tab-pane>
       <n-tab-pane name="提示词模板">
         <PromptTemplateList/>
       </n-tab-pane>
-      <n-tab-pane name="股票信息筛选">
+      <n-tab-pane name="提示词广场">
+        <PromptPlaza/>
+      </n-tab-pane>
+      <n-tab-pane name="问答广场">
+        <PromptQa/>
+      </n-tab-pane>
+      <n-tab-pane name="形态选股">
         <AllStockList/>
+      </n-tab-pane>
+      <n-tab-pane name="指标选股">
+        <SelectStock/>
       </n-tab-pane>
       <n-tab-pane name="定时任务">
         <CronTaskManager />
@@ -63,15 +81,21 @@ function updateTab(name) {
       <n-tab-pane name="交易日志">
         <TradingRecordManager />
       </n-tab-pane>
+      <n-tab-pane name="每日操作计划">
+        <DailyOperationPlan/>
+      </n-tab-pane>
 <!--      <n-tab-pane name="全部股票信息">-->
 <!--        <AllStockInfoList/>-->
 <!--      </n-tab-pane>-->
       <n-tab-pane name="MCP服务">
         <MCPServiceManager/>
       </n-tab-pane>
-<!--      <n-tab-pane name="技能管理">-->
-<!--        <SkillManager/>-->
-<!--      </n-tab-pane>-->
+      <n-tab-pane name="技能管理">
+        <SkillManager/>
+      </n-tab-pane>
+      <n-tab-pane name="知识库管理">
+        <KnowledgeBaseManager/>
+      </n-tab-pane>
     </n-tabs>
   </n-card>
 </template>

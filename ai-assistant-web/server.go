@@ -13,8 +13,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/go-resty/resty/v2"
 )
 
 //go:embed static
@@ -288,7 +286,7 @@ func (a *app) shareText(w http.ResponseWriter, r *http.Request) {
 		req.Title = "AI助手"
 	}
 	analysisTime := time.Now().Format("2006/01/02")
-	resp, err := resty.New().SetHeader("ua-x", "go-stock").R().SetFormData(map[string]string{
+	resp, err := data.SharedHTTPClient.SetHeader("ua-x", "go-stock").R().SetFormData(map[string]string{
 		"text":         req.Text,
 		"stockCode":    req.Title,
 		"stockName":    req.Title,

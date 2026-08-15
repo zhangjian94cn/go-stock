@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-resty/resty/v2"
 	fakeUserAgent "github.com/lib4u/fake-useragent"
 )
 
@@ -76,7 +75,7 @@ type APIPurchase struct {
 // handleGetMarketData 处理 GetMarketData 工具调用
 func handleGetMarketData(o *OpenAi, funcArguments string, ctx *ToolContext) error {
 	// 调用实际的API获取市场数据
-	client := resty.New()
+	client := SharedHTTPClient
 	apiURL := "https://x-quote.cls.cn/quote/index/home?app=CailianpressWeb&os=web&sv=8.4.6"
 
 	// 获取随机User-Agent

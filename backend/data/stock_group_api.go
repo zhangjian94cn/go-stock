@@ -113,7 +113,16 @@ func (receiver StockGroupApi) GetGroupStockByGroupId(groupId int) []GroupStock {
 	return stockGroup
 }
 
+// GetAllGroupStocks 一次返回全部分组-股票归属记录（预加载 GroupInfo）。
+// 用于前端在「全部」标签页表格中渲染每只股票所属的分组，避免 N+1 查询。
+func (receiver StockGroupApi) GetAllGroupStocks() []GroupStock {
+	var stockGroup []GroupStock
+	receiver.dao.Preload("GroupInfo").Find(&stockGroup)
+	return stockGroup
+}
+
 func (receiver StockGroupApi) AddStockGroup(groupId int, stockCode string) bool {
+	stockCode = normalizeStockCode(stockCode)
 	err := receiver.dao.Where("group_id = ? and stock_code = ?", groupId, stockCode).FirstOrCreate(&GroupStock{
 		GroupId:   groupId,
 		StockCode: stockCode,
@@ -125,6 +134,7 @@ func (receiver StockGroupApi) AddStockGroup(groupId int, stockCode string) bool 
 }
 
 func (receiver StockGroupApi) RemoveStockGroup(code string, name string, id int) bool {
+	code = normalizeStockCode(code)
 	err := receiver.dao.Where("group_id = ? and stock_code = ?", id, code).Delete(&GroupStock{}).Error
 	return err == nil
 }
@@ -134,4 +144,13 @@ func (receiver StockGroupApi) RemoveGroup(id int) bool {
 	err = receiver.dao.Where("group_id = ?", id).Delete(&GroupStock{}).Error
 	return err == nil
 
+}
+
+// UpdateGroup 仅更新分组名称，sort 保持不变
+func (receiver StockGroupApi) UpdateGroup(id int, name string) bool {
+	if name == "" {
+		return false
+	}
+	err := receiver.dao.Model(&Group{}).Where("id = ?", id).Update("name", name).Error
+	return err == nil
 }

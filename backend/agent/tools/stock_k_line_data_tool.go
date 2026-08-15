@@ -58,6 +58,14 @@ func (q QueryStockKLine) InvokableRun(ctx context.Context, argumentsInJSON strin
 		if strutil.HasPrefixAny(stockCode, []string{"hk", "us", "gb_"}) {
 			K = data.NewStockDataApi().GetHK_KLineData(stockCode, "day", toIntDay)
 		}
+		var sourceLabel string
+		if K == nil || len(*K) == 0 {
+			fallbackResult := data.FetchKLineWithFallback(stockCode, "", "101", int(toIntDay), "")
+			if fallbackResult.Data != nil && len(*fallbackResult.Data) > 0 {
+				K = fallbackResult.Data
+				sourceLabel = fallbackResult.Source
+			}
+		}
 		Kmap := &[]map[string]any{}
 		for _, kline := range *K {
 			mapk := make(map[string]any, 6)
@@ -72,7 +80,11 @@ func (q QueryStockKLine) InvokableRun(ctx context.Context, argumentsInJSON strin
 		}
 		jsonData, _ := json.Marshal(Kmap)
 		markdownTable, _ := JSONToMarkdownTable(jsonData)
-		res := "\r\n ### " + stockCode + " " + convertor.ToString(toIntDay) + "日K线数据：\r\n" + markdownTable + "\r\n"
+		sourceInfo := ""
+		if sourceLabel != "" {
+			sourceInfo = "（数据源：" + sourceLabel + "）"
+		}
+		res := "\r\n ### " + stockCode + " " + convertor.ToString(toIntDay) + "日K线数据" + sourceInfo + "：\r\n" + markdownTable + "\r\n"
 		return res, nil
 	} else {
 		return "无数据，可能股票代码错误。（A股：sh,sz开头;港股hk开头,美股：us开头）", fmt.Errorf("不支持的股票代码:%s", stockCode)

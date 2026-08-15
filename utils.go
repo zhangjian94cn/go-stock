@@ -21,3 +21,8 @@ func IsMacOS() bool {
 func IsLinux() bool {
 	return runtime.GOOS == "linux"
 }
+
+// IsArm64 判断是否为 ARM64 架构
+func IsArm64() bool {
+	return runtime.GOARCH == "arm64"
+}

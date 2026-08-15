@@ -3,6 +3,7 @@
 import {models} from '../models';
 import {data} from '../models';
 import {context} from '../models';
+import {agent} from '../models';
 import {main} from '../models';
 import {lo} from '../models';
 
@@ -12,13 +13,19 @@ export function AbortSummaryStockNews():Promise<void>;
 
 export function AddAllStockInfo(arg1:models.AllStockInfo):Promise<string>;
 
+export function AddConcept(arg1:data.Concept):Promise<string>;
+
 export function AddCronTask(arg1:data.FollowedStock):Promise<any>;
 
 export function AddGroup(arg1:data.Group):Promise<string>;
 
+export function AddKBDocument(arg1:string,arg2:string,arg3:string):Promise<Array<string>>;
+
 export function AddPrompt(arg1:models.Prompt):Promise<string>;
 
 export function AddPromptTemplate(arg1:models.PromptTemplate):Promise<string>;
+
+export function AddStockConcept(arg1:number,arg2:string):Promise<string>;
 
 export function AddStockGroup(arg1:number,arg2:string):Promise<string>;
 
@@ -32,11 +39,17 @@ export function BatchDeleteAIResponseResult(arg1:Array<number>):Promise<string>;
 
 export function BatchDeleteAllStockInfo(arg1:Array<number>):Promise<string>;
 
+export function BuildKBGraph(arg1:string,arg2:number):Promise<void>;
+
 export function CalculateNextRunTime(arg1:string):Promise<string>;
 
 export function CalculateNextRunTimes(arg1:string,arg2:number):Promise<Array<string>>;
 
-export function ChatWithAgent(arg1:string,arg2:number,arg3:any,arg4:boolean,arg5:number,arg6:boolean,arg7:string):Promise<void>;
+export function ChatWithAgent(arg1:string,arg2:number,arg3:any,arg4:boolean,arg5:number,arg6:boolean,arg7:string,arg8:string,arg9:string):Promise<void>;
+
+export function ChatWithAgentKBQA(arg1:string,arg2:number,arg3:string,arg4:string):Promise<void>;
+
+export function CheckDeviceBinding(arg1:string,arg2:string):Promise<Record<string, any>>;
 
 export function CheckFrequentTrading(arg1:string):Promise<Record<string, any>>;
 
@@ -46,9 +59,25 @@ export function CheckStockBaseInfo(arg1:context.Context):Promise<void>;
 
 export function CheckUpdate(arg1:number):Promise<void>;
 
+export function ClearAgentFeedback():Promise<void>;
+
+export function ClearUserProfile():Promise<void>;
+
 export function ClsCalendar():Promise<Array<any>>;
 
+export function ConceptDetail(arg1:string):Promise<models.ConceptDetailInfo>;
+
+export function ConceptEventList(arg1:string):Promise<any>;
+
+export function ConceptKLine(arg1:string):Promise<models.ConceptKLineData>;
+
+export function ConceptRealHead(arg1:string):Promise<models.ConceptMarket>;
+
+export function ConceptStocks(arg1:string,arg2:number):Promise<Array<models.ConceptStock>>;
+
 export function CreateCronTask(arg1:models.CronTask):Promise<string>;
+
+export function CreateKnowledgeBase(arg1:string,arg2:string,arg3:number,arg4:string):Promise<agent.KnowledgeBaseInfo>;
 
 export function CreateMCPServer(arg1:models.MCPServer):Promise<string>;
 
@@ -58,17 +87,33 @@ export function DelPrompt(arg1:number):Promise<string>;
 
 export function DeleteAIResponseResult(arg1:number):Promise<string>;
 
+export function DeleteAgentFeedback(arg1:number):Promise<void>;
+
 export function DeleteAiRecommendStocks(arg1:number):Promise<string>;
 
 export function DeleteAllStockInfo(arg1:number):Promise<string>;
 
 export function DeleteCronTask(arg1:number):Promise<string>;
 
+export function DeleteCustomStrategy(arg1:number):Promise<string>;
+
+export function DeleteDailyOperationPlan(arg1:number):Promise<string>;
+
+export function DeleteFilesystemSkill(arg1:string):Promise<string>;
+
+export function DeleteKBDocument(arg1:string,arg2:string):Promise<void>;
+
+export function DeleteKBGraph(arg1:string):Promise<void>;
+
+export function DeleteKnowledgeBase(arg1:string):Promise<void>;
+
 export function DeleteMCPServer(arg1:number):Promise<string>;
 
 export function DeletePromptTemplate(arg1:number):Promise<string>;
 
 export function DeleteSkill(arg1:number):Promise<string>;
+
+export function DeleteSkillFile(arg1:string,arg2:string):Promise<string>;
 
 export function DeleteStockChangeHistory(arg1:number):Promise<string>;
 
@@ -86,11 +131,13 @@ export function ExecuteCronTaskNow(arg1:number):Promise<string>;
 
 export function ExportConfig():Promise<string>;
 
-export function FetchAiModelInfo(arg1:string,arg2:string,arg3:string):Promise<main.AiModelInfo>;
+export function FetchAiModelInfo(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.AiModelInfo>;
 
-export function FetchAiModels(arg1:string,arg2:string):Promise<Array<string>>;
+export function FetchAiModels(arg1:string,arg2:string,arg3:string):Promise<Array<string>>;
 
 export function FetchAndSaveMarketStatistic():Promise<void>;
+
+export function FindConceptCodeByName(arg1:string):Promise<string>;
 
 export function Follow(arg1:string):Promise<string>;
 
@@ -100,15 +147,31 @@ export function GetAIResponseResult(arg1:string):Promise<models.AIResponseResult
 
 export function GetAIResponseResultList(arg1:models.AIResponseResultQuery):Promise<models.AIResponseResultPageData>;
 
+export function GetAgentFeedbackStats():Promise<agent.FeedbackStats>;
+
 export function GetAiAssistantSession(arg1:string):Promise<models.AiAssistantSessionResp>;
 
 export function GetAiConfigs():Promise<Array<data.AIConfig>>;
 
 export function GetAiRecommendStocksList(arg1:models.AiRecommendStocksQuery):Promise<models.AiRecommendStocksPageData>;
 
+export function GetAllBKCodes():Promise<Array<Record<string, string>>>;
+
+export function GetAllConceptCodes():Promise<Array<Record<string, string>>>;
+
+export function GetAllConceptPlates():Promise<Array<data.ConceptPlate>>;
+
 export function GetAllConcepts():Promise<Array<string>>;
 
+export function GetAllCustomStrategies():Promise<any>;
+
+export function GetAllGroupStocks():Promise<Array<data.GroupStock>>;
+
 export function GetAllIndustries():Promise<Array<string>>;
+
+export function GetAllIndustryPlates():Promise<Array<data.IndustryPlate>>;
+
+export function GetAllKBVectorizingStatuses():Promise<Record<string, agent.KBVectorizingStatus>>;
 
 export function GetAllMCPTools():Promise<Array<models.MCPServerTool>>;
 
@@ -118,15 +181,39 @@ export function GetAllSkills():Promise<Array<models.Skill>>;
 
 export function GetAllStockChangesWithPaging(arg1:number):Promise<data.StockChangesResponse>;
 
+export function GetAllStockConcepts():Promise<Array<data.ConceptStock>>;
+
 export function GetAllStockInfoById(arg1:number):Promise<models.AllStockInfo>;
 
 export function GetAllStockInfoList(arg1:data.AllStockInfoQuery):Promise<data.AllStockInfoPageData>;
 
 export function GetAllStocks(arg1:number,arg2:number,arg3:string,arg4:models.TechnicalIndicators):Promise<models.AllStocksResp>;
 
+export function GetAllTdxTransactionData(arg1:string):Promise<any>;
+
+export function GetBKFundFlowList(arg1:string,arg2:number):Promise<Array<models.BKFundFlowPoint>>;
+
+export function GetBKFundFlowListByDate(arg1:string,arg2:string):Promise<Array<models.BKFundFlowPoint>>;
+
+export function GetBKFundFlowTopList(arg1:number):Promise<Array<models.BKFundFlow>>;
+
+export function GetBKFundFlowTopListByDate(arg1:string,arg2:number):Promise<Array<models.BKFundFlow>>;
+
 export function GetChangeRank(arg1:number,arg2:number):Promise<data.ChangeRankResult>;
 
 export function GetChangeTypeDailyStats(arg1:number):Promise<Array<data.ChangeTypeDailyStats>>;
+
+export function GetChipDistribution(arg1:string,arg2:number,arg3:number,arg4:string):Promise<data.ChipDistributionResult>;
+
+export function GetConceptFundFlowList(arg1:string,arg2:number):Promise<Array<models.ConceptFundFlowPoint>>;
+
+export function GetConceptFundFlowListByDate(arg1:string,arg2:string):Promise<Array<models.ConceptFundFlowPoint>>;
+
+export function GetConceptFundFlowTopList(arg1:number):Promise<Array<models.ConceptFundFlow>>;
+
+export function GetConceptFundFlowTopListByDate(arg1:string,arg2:number):Promise<Array<models.ConceptFundFlow>>;
+
+export function GetConceptList():Promise<Array<data.Concept>>;
 
 export function GetConfig():Promise<data.SettingConfig>;
 
@@ -136,31 +223,75 @@ export function GetCronTaskList(arg1:models.CronTaskQuery):Promise<models.CronTa
 
 export function GetCronTaskTypes():Promise<Array<lo.Tuple2_string_string_>>;
 
+export function GetCustomStrategyList(arg1:models.CustomStrategyQuery):Promise<models.CustomStrategyPageData>;
+
 export function GetDailyChangeStats(arg1:number):Promise<Array<data.DailyChangeStats>>;
 
 export function GetDailyDimensionStats(arg1:string,arg2:string,arg3:number):Promise<Array<data.DailyDimensionStats>>;
 
+export function GetDailyOperationPlanByID(arg1:number):Promise<models.DailyOperationPlan>;
+
+export function GetDailyOperationPlanList(arg1:models.DailyOperationPlanQuery):Promise<models.DailyOperationPlanPageData>;
+
 export function GetEffectiveSponsorVip():Promise<Record<string, any>>;
+
+export function GetFeishuBotStatus():Promise<string>;
 
 export function GetFollowList(arg1:number):Promise<any>;
 
 export function GetFollowedFund():Promise<Array<data.FollowedFund>>;
 
+export function GetFollowedFundPaged(arg1:number,arg2:number,arg3:string):Promise<data.FollowedFundPagedResult>;
+
+export function GetFundHistoryNetValue(arg1:string,arg2:number,arg3:string,arg4:string):Promise<Array<data.FundHistoryNetValue>>;
+
+export function GetFundKLine(arg1:string,arg2:string,arg3:number):Promise<data.KLineSourceResult>;
+
+export function GetFundRanking(arg1:string,arg2:string,arg3:string,arg4:string,arg5:number,arg6:number):Promise<data.FundRankingResult>;
+
+export function GetFundTop10Holdings(arg1:string):Promise<Array<data.FundHoldingStock>>;
+
 export function GetGroupList():Promise<Array<data.Group>>;
 
 export function GetGroupStockList(arg1:number):Promise<Array<data.GroupStock>>;
 
+export function GetHistoryTdxMinuteTimeData(arg1:string,arg2:string):Promise<data.TdxMinuteTimeDataBundle>;
+
+export function GetHistoryTdxTransactionData(arg1:string,arg2:string):Promise<any>;
+
 export function GetHotStrategy():Promise<Record<string, any>>;
+
+export function GetIndexQuotes():Promise<Array<data.IndexQuoteItem>>;
+
+export function GetIndexTline(arg1:string):Promise<data.IndexTlineResult>;
 
 export function GetIndustryMoneyRankSina(arg1:string,arg2:string):Promise<Array<Record<string, any>>>;
 
 export function GetIndustryRank(arg1:string,arg2:number):Promise<Array<any>>;
+
+export function GetKBGraph(arg1:string):Promise<agent.KBGraph>;
+
+export function GetKBGraphBuildStatus(arg1:string):Promise<agent.KBGraphBuildStatus>;
+
+export function GetKBVectorizingStatus(arg1:string):Promise<agent.KBVectorizingStatus>;
+
+export function GetKnowledgeBase(arg1:string):Promise<agent.KnowledgeBaseInfo>;
+
+export function GetLatestTradingDay():Promise<string>;
+
+export function GetLongTermMemoryAiConfigId():Promise<number>;
+
+export function GetLongTermMemoryInfo():Promise<agent.LTMInfo>;
 
 export function GetMCPServerByID(arg1:number):Promise<models.MCPServer>;
 
 export function GetMCPServerList(arg1:models.MCPServerQuery):Promise<models.MCPServerPageResp>;
 
 export function GetMCPToolsByServerID(arg1:number):Promise<Array<models.MCPServerTool>>;
+
+export function GetMachineId():Promise<string>;
+
+export function GetMarketEmotion():Promise<data.MarketEmotion>;
 
 export function GetMarketStatisticByDate(arg1:string):Promise<Array<models.MarketStatistic>>;
 
@@ -171,6 +302,10 @@ export function GetPromptTemplateList(arg1:models.PromptTemplateQuery):Promise<m
 export function GetPromptTemplates(arg1:string,arg2:string):Promise<any>;
 
 export function GetRecentDaysMarketStatistic(arg1:number):Promise<Array<models.MarketStatistic>>;
+
+export function GetRecommendBacktestStats():Promise<agent.BacktestStats>;
+
+export function GetSectorAnchors(arg1:string):Promise<Array<data.SectorAnchor>>;
 
 export function GetSkillByID(arg1:number):Promise<models.Skill>;
 
@@ -184,11 +319,17 @@ export function GetStockChanges(arg1:Array<number>,arg2:number,arg3:number):Prom
 
 export function GetStockCommonKLine(arg1:string,arg2:string,arg3:number):Promise<any>;
 
+export function GetStockConceptsByStockCode(arg1:string):Promise<Array<data.ConceptStock>>;
+
 export function GetStockEastMoneyKLine(arg1:string,arg2:string,arg3:string,arg4:number):Promise<any>;
 
 export function GetStockEastMoneyKLinePage(arg1:string,arg2:string,arg3:string,arg4:number,arg5:string):Promise<any>;
 
 export function GetStockKLine(arg1:string,arg2:string,arg3:number):Promise<any>;
+
+export function GetStockKLinePageWithFallback(arg1:string,arg2:string,arg3:string,arg4:number,arg5:string,arg6:string):Promise<data.KLineSourceResult>;
+
+export function GetStockKLineWithFallback(arg1:string,arg2:string,arg3:string,arg4:number,arg5:string):Promise<data.KLineSourceResult>;
 
 export function GetStockList(arg1:string):Promise<Array<data.StockBasic>>;
 
@@ -197,6 +338,24 @@ export function GetStockMinutePriceLineData(arg1:string,arg2:string):Promise<Rec
 export function GetStockMoneyTrendByDay(arg1:string,arg2:number):Promise<Array<Record<string, any>>>;
 
 export function GetStockRealTimePrice(arg1:string):Promise<Record<string, any>>;
+
+export function GetTdxCallAuction(arg1:string,arg2:number,arg3:number):Promise<any>;
+
+export function GetTdxCompanyCategoryContent(arg1:string,arg2:string):Promise<data.TdxCompanyInfoSection>;
+
+export function GetTdxCompanyCategoryList(arg1:string):Promise<any>;
+
+export function GetTdxCompanyInfo(arg1:string):Promise<data.TdxCompanyInfoBundle>;
+
+export function GetTdxFinanceInfo(arg1:string):Promise<data.TdxFinanceInfo>;
+
+export function GetTdxMinuteTimeData(arg1:string):Promise<data.TdxMinuteTimeDataBundle>;
+
+export function GetTdxSymbolBelongBoard(arg1:string):Promise<any>;
+
+export function GetTdxTransactionData(arg1:string,arg2:number,arg3:number):Promise<any>;
+
+export function GetTdxXDXRInfo(arg1:string):Promise<any>;
 
 export function GetTelegraphList(arg1:string):Promise<any>;
 
@@ -212,6 +371,18 @@ export function GetTradingRecordStatistics():Promise<data.TradingRecordStatistic
 
 export function GetTypeStatsByDate(arg1:string):Promise<Array<data.TypeCountStats>>;
 
+export function GetUplimitHot(arg1:string,arg2:number):Promise<Record<string, any>>;
+
+export function GetUserManual():Promise<string>;
+
+export function GetUserProfile():Promise<string>;
+
+export function GetUserProfileEnabled():Promise<boolean>;
+
+export function GetUserProfileSnapshot():Promise<agent.UserProfileSnapshot>;
+
+export function GetUserProfileUpdatedAt():Promise<string>;
+
 export function GetVersionInfo():Promise<models.VersionInfo>;
 
 export function GetfundList(arg1:string):Promise<Array<data.FundBasic>>;
@@ -222,11 +393,23 @@ export function GlobalStockIndexesReadable():Promise<string>;
 
 export function Greet(arg1:string):Promise<data.StockInfo>;
 
+export function HideToTray():Promise<void>;
+
 export function HotEvent(arg1:number):Promise<any>;
 
 export function HotStock(arg1:string):Promise<any>;
 
 export function HotTopic(arg1:number):Promise<Array<any>>;
+
+export function ImportSkillPackage():Promise<string>;
+
+export function ImportTradingRecordsFromExcel():Promise<data.TradingRecordImportResult>;
+
+export function IndustryDetail(arg1:string):Promise<models.ConceptDetailInfo>;
+
+export function IndustryKLine(arg1:string):Promise<models.ConceptKLineData>;
+
+export function IndustryRealHead(arg1:string):Promise<models.ConceptMarket>;
 
 export function IndustryResearchReport(arg1:string):Promise<Array<any>>;
 
@@ -236,6 +419,32 @@ export function InitializeGroupSort():Promise<boolean>;
 
 export function InvestCalendarTimeLine(arg1:string):Promise<Array<any>>;
 
+export function IsHKTradingTime():Promise<boolean>;
+
+export function IsTradingDay(arg1:string):Promise<boolean>;
+
+export function IsTradingTime():Promise<boolean>;
+
+export function IsUSTradingTime():Promise<boolean>;
+
+export function ListAIServicesForKB():Promise<Array<agent.KBAIServiceOption>>;
+
+export function ListAgentFeedback(arg1:number,arg2:number):Promise<agent.FeedbackPageData>;
+
+export function ListFilesystemSkills():Promise<Array<main.FilesystemSkillInfo>>;
+
+export function ListKBDocuments(arg1:string):Promise<Array<agent.KnowledgeBaseDocument>>;
+
+export function ListKBDocumentsPaged(arg1:string,arg2:number,arg3:number):Promise<agent.KBDocumentsPage>;
+
+export function ListKnowledgeBases():Promise<Array<agent.KnowledgeBaseInfo>>;
+
+export function ListRecommendBacktest(arg1:number,arg2:number):Promise<agent.BacktestPageData>;
+
+export function ListRecommendBacktestByPrompt(arg1:number,arg2:number,arg3:string,arg4:string):Promise<agent.BacktestPageData>;
+
+export function ListSkillFiles(arg1:string):Promise<Array<main.SkillFileInfo>>;
+
 export function LongTigerRank(arg1:string):Promise<any>;
 
 export function NewChatStream(arg1:string,arg2:string,arg3:string,arg4:number,arg5:any,arg6:boolean,arg7:boolean):Promise<void>;
@@ -244,11 +453,39 @@ export function NewsPush(arg1:any):Promise<void>;
 
 export function OpenURL(arg1:string):Promise<void>;
 
+export function PickKBFilePath():Promise<string>;
+
+export function PickKBFilePaths():Promise<Array<string>>;
+
+export function PromptPlazaRequest(arg1:string,arg2:string,arg3:string,arg4:Record<string, any>,arg5:string,arg6:string):Promise<Record<string, any>>;
+
+export function QuitApp():Promise<void>;
+
 export function ReFleshTelegraphList(arg1:string):Promise<any>;
+
+export function ReadSkillFile(arg1:string,arg2:string):Promise<string>;
+
+export function RefreshAllTdxTransactionData(arg1:string):Promise<any>;
+
+export function RefreshHistoryTdxTransactionData(arg1:string,arg2:string):Promise<any>;
+
+export function RelearnUserProfile():Promise<string>;
+
+export function RemoveConcept(arg1:number):Promise<string>;
 
 export function RemoveGroup(arg1:number):Promise<string>;
 
+export function RemoveStockConcept(arg1:string,arg2:string,arg3:number):Promise<string>;
+
 export function RemoveStockGroup(arg1:string,arg2:string,arg3:number):Promise<string>;
+
+export function RestartAsAdmin():Promise<void>;
+
+export function RunRecommendBacktest(arg1:number):Promise<string>;
+
+export function RzrqRank(arg1:string,arg2:string,arg3:string,arg4:string,arg5:number,arg6:number):Promise<models.RzrqRankData>;
+
+export function RzrqTrend(arg1:string,arg2:string):Promise<models.RzrqTrendData>;
 
 export function SaveAIResponseResult(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:number):Promise<void>;
 
@@ -256,13 +493,27 @@ export function SaveAiAssistantSession(arg1:string,arg2:Array<models.AiAssistant
 
 export function SaveAsMarkdown(arg1:string,arg2:string):Promise<string>;
 
+export function SaveCustomStrategy(arg1:models.CustomStrategy):Promise<string>;
+
+export function SaveDailyOperationPlan(arg1:models.DailyOperationPlan):Promise<string>;
+
 export function SaveImage(arg1:string,arg2:string):Promise<string>;
 
 export function SaveStockChangesToHistory(arg1:Array<number>):Promise<string>;
 
+export function SaveUserProfile(arg1:string):Promise<void>;
+
 export function SaveWordFile(arg1:string,arg2:string):Promise<string>;
 
+export function SearchAllKnowledge(arg1:string,arg2:number):Promise<Array<agent.UnifiedKnowledgeHit>>;
+
 export function SearchCronTasks(arg1:string):Promise<Array<models.CronTask>>;
+
+export function SearchFundCodes(arg1:string):Promise<Array<data.FundSearchItem>>;
+
+export function SearchKnowledgeBase(arg1:string,arg2:string,arg3:number):Promise<Array<agent.KnowledgeBaseSearchResult>>;
+
+export function SearchLongTermMemory(arg1:string,arg2:number):Promise<Array<agent.MemoryRecall>>;
 
 export function SearchStock(arg1:string):Promise<Record<string, any>>;
 
@@ -270,9 +521,15 @@ export function SendDingDingMessage(arg1:string,arg2:string):Promise<string>;
 
 export function SendDingDingMessageByType(arg1:string,arg2:string,arg3:number):Promise<string>;
 
+export function SendFeishuMessage(arg1:string,arg2:string):Promise<string>;
+
+export function SendFeishuMessageByType(arg1:string,arg2:string,arg3:number):Promise<string>;
+
 export function SetAlarmChangePercent(arg1:number,arg2:number,arg3:string):Promise<string>;
 
 export function SetCostPriceAndVolume(arg1:string,arg2:number,arg3:number):Promise<string>;
+
+export function SetLongTermMemoryAiConfigId(arg1:number):Promise<void>;
 
 export function SetStockAICron(arg1:string,arg2:string):Promise<void>;
 
@@ -280,13 +537,23 @@ export function SetStockSort(arg1:number,arg2:string):Promise<void>;
 
 export function SetTradingPrice(arg1:string,arg2:number,arg3:number,arg4:number,arg5:number):Promise<string>;
 
+export function SetUserProfileEnabled(arg1:boolean):Promise<void>;
+
 export function ShareAnalysis(arg1:string,arg2:string):Promise<string>;
 
 export function ShareText(arg1:string,arg2:string):Promise<string>;
 
+export function ShowFromTray():Promise<void>;
+
+export function StartFeishuBot():Promise<string>;
+
 export function StockNotice(arg1:string):Promise<Array<any>>;
 
 export function StockResearchReport(arg1:string):Promise<Array<any>>;
+
+export function StopFeishuBot():Promise<string>;
+
+export function SubmitAgentFeedback(arg1:models.AgentFeedback):Promise<void>;
 
 export function SummaryStockNews(arg1:string,arg2:number,arg3:any,arg4:boolean,arg5:boolean,arg6:string,arg7:string):Promise<void>;
 
@@ -296,11 +563,21 @@ export function UnFollow(arg1:string):Promise<string>;
 
 export function UnFollowFund(arg1:string):Promise<string>;
 
+export function UpdateAiConfigs(arg1:Array<data.AIConfig>):Promise<string>;
+
 export function UpdateAiRecommendStocksAlert(arg1:number,arg2:boolean):Promise<string>;
+
+export function UpdateConcept(arg1:number,arg2:string):Promise<string>;
 
 export function UpdateConfig(arg1:data.SettingConfig):Promise<string>;
 
 export function UpdateCronTask(arg1:models.CronTask):Promise<string>;
+
+export function UpdateDailyOperationPlanAlert(arg1:number,arg2:boolean):Promise<string>;
+
+export function UpdateDailyOperationPlanStatus(arg1:number,arg2:string):Promise<string>;
+
+export function UpdateGroup(arg1:number,arg2:string):Promise<string>;
 
 export function UpdateGroupSort(arg1:number,arg2:number):Promise<boolean>;
 
@@ -312,4 +589,10 @@ export function UpdateSkill(arg1:models.Skill):Promise<string>;
 
 export function UpdateTradingRecord(arg1:data.TradingRecord):Promise<void>;
 
+export function UploadKBFile(arg1:string,arg2:string):Promise<Array<string>>;
+
+export function UploadKBFiles(arg1:string,arg2:Array<string>):Promise<void>;
+
 export function ValidateCronExpr(arg1:string):Promise<string>;
+
+export function WriteSkillFile(arg1:string,arg2:string,arg3:string):Promise<string>;

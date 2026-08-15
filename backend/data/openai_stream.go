@@ -32,7 +32,7 @@ func (o *OpenAi) NewSummaryStockNewsStreamWithTools(userQuestion string, sysProm
 		defer func() {
 			if err := recover(); err != nil {
 				logger.SugaredLogger.Errorf("NewSummaryStockNewsStream goroutine panic: %s", err)
-				logger.SugaredLogger.Errorf("NewSummaryStockNewsStream goroutine panic config: %s", o.String())
+				logger.SugaredLogger.Errorf("NewSummaryStockNewsStream goroutine panic context: model=%s timeout=%d maxTokens=%d", o.Model, o.TimeOut, o.MaxTokens)
 			}
 		}()
 		defer close(ch)
@@ -46,6 +46,15 @@ func (o *OpenAi) NewSummaryStockNewsStreamWithTools(userQuestion string, sysProm
 		if sysPrompt == "" {
 			sysPrompt = o.Prompt
 		}
+
+		sysPrompt += `
+
+【强制规则】你必须通过工具调用获取实时数据，严禁凭记忆编造或使用过时数据。以下场景必须调用工具：
+1. 股票/指数行情数据（价格、涨跌幅、成交量等）——必须调用工具获取最新实时数据
+2. 财务数据（营收、利润、市盈率等）——必须调用工具获取最新财报数据
+3. 新闻资讯——必须调用工具获取最新新闻
+4. 宏观经济数据——必须调用工具获取最新数据
+任何涉及具体数字的回答，都必须先通过工具查询确认，不得使用训练数据中的过时信息。如果你没有获取到最新数据，必须明确告知用户"当前未能获取到最新数据"，绝不能编造数据。`
 
 		sysPrompt += "最后必须调用CreateAiRecommendStocks工具函数保存ai股票推荐记录。"
 
@@ -163,7 +172,7 @@ func (o *OpenAi) NewSummaryStockNewsStream(userQuestion string, sysPromptId *int
 		defer func() {
 			if err := recover(); err != nil {
 				logger.SugaredLogger.Errorf("NewSummaryStockNewsStream goroutine  panic :%s", err)
-				logger.SugaredLogger.Errorf("NewSummaryStockNewsStream goroutine  panic  config:%s", o.String())
+				logger.SugaredLogger.Errorf("NewSummaryStockNewsStream goroutine panic context: model=%s baseUrl=%s", o.Model, o.BaseUrl)
 			}
 		}()
 		defer close(ch)
@@ -306,7 +315,7 @@ func (o *OpenAi) NewChatStream(stock, stockCode, userQuestion string, sysPromptI
 			if err := recover(); err != nil {
 				logger.SugaredLogger.Errorf("NewChatStream goroutine  panic :%s", err)
 				logger.SugaredLogger.Errorf("NewChatStream goroutine  panic  stock:%s stockCode:%s", stock, stockCode)
-				logger.SugaredLogger.Errorf("NewChatStream goroutine  panic  config:%s", o.String())
+				logger.SugaredLogger.Errorf("NewChatStream goroutine  panic  context:model=%s timeout=%d", o.Model, o.TimeOut)
 			}
 		}()
 		defer close(ch)

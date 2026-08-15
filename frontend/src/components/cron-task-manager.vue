@@ -799,7 +799,8 @@ const nextRunTimes = ref([])
 const agentModeOptions = [
   { label: '🤖 自动选择', value: '' },
   { label: '⚡ 快速模式', value: 'react' },
-  { label: '🧠 规划模式', value: 'plan_execute' }
+  { label: '🧠 规划模式', value: 'plan_execute' },
+  { label: '🔬 DeepAgents', value: 'deepagents' }
 ]
 
 const stockAnalysisParamsData = reactive({
@@ -1086,6 +1087,7 @@ const pagination = computed(() => ({
   pageSize: pageSize.value,
   showSizePicker: true,
   pageSizes: [10, 20, 50, 100],
+  itemCount: total.value,
   onChange: handlePageChange,
   onUpdatePageSize: handlePageSizeChange
 }))
@@ -1407,7 +1409,7 @@ const resetForm = () => {
     promptId: null,
     aiConfigId: null,
     sysPromptId: null,
-    thinking: false,
+    thinking: true,
     stockCode: '',
     stockName: '',
     agentMode: ''
@@ -1416,7 +1418,7 @@ const resetForm = () => {
     promptId: null,
     aiConfigId: null,
     sysPromptId: null,
-    thinking: false,
+    thinking: true,
     agentMode: ''
   })
   // 重置 Cron 配置器

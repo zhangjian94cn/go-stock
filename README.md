@@ -6,6 +6,55 @@
 
 [//]: # ([![star]&#40;https://gitcode.com/ArvinLovegood/go-stock/star/badge.svg&#41;]&#40;https://gitcode.com/ArvinLovegood/go-stock&#41;)
 
+[//]: # (## 💖 赞助商 &#40;Sponsors&#41;)
+
+[//]: # (### 🌟[Anspire开放平台]&#40;https://open.anspire.cn/?share_code=OMSTE9LW&#41;，一Key同时启用全球热门大模型和联网搜索，无需科学上网，含免费额度)
+
+[//]: # ([![Anspire开放平台]&#40;./build/screenshot/anspire-ai.png&#41;]&#40;https://open.anspire.cn/?share_code=OMSTE9LW&#41;)
+
+[//]: # ()
+[//]: # (<table>)
+
+[//]: # (<tr>)
+
+[//]: # (<td width="180">)
+
+[//]: # (<a href="https://open.anspire.cn/?share_code=OMSTE9LW">)
+
+[//]: # (<img src="./build/screenshot/anspire-logo.png" alt="Anspire" width="150">)
+
+[//]: # (</a>)
+
+[//]: # (</td>)
+
+[//]: # (<td>)
+
+[//]: # (感谢 <a href="https://open.anspire.cn/?share_code=OMSTE9LW">Anspire开放平台</a> 赞助了本项目！安思派AI服务平台&#40;Anspire Open&#41;是面向智能体时代的领先的基础设施提供商，现已上线AI联网搜索、AI模型服务、OpenClaw部署、无忧养虾服务。新用户立赠2500点，可体验平台下的任意产品。</td>)
+
+[//]: # (</tr>)
+
+[//]: # (<tr>)
+
+[//]: # (<td width="180">)
+
+[//]: # (<a href="https://www.compshare.cn/?ytag=GPU_YY_YX_git_go-stock">)
+
+[//]: # (<img src="./build/screenshot/uclound.png" alt="UCloud" width="150">)
+
+[//]: # (</a>)
+
+[//]: # (</td>)
+
+[//]: # (<td>)
+
+[//]: # (感谢 <a href="https://www.compshare.cn/?ytag=GPU_YY_YX_git_go-stock">优云智算</a> 赞助了本项目！优云智算是UCloud旗下AI云平台，主打包月、按次的高性价比 国模Agent Plan套餐，同时提供官转稳定海外模型。支持接入 Claude Code、Codex 及 API 调用。支持企业高并发、7*24技术支持、自助开票。通过此链接注册的用户，可得免费5元平台体验金！        )
+
+[//]: # (</td>)
+
+[//]: # (</tr>)
+
+[//]: # (</table>)
+
 ### 🌟公众号
 ![扫码_搜索联合传播样式-白色版.png](build/screenshot/%E6%89%AB%E7%A0%81_%E6%90%9C%E7%B4%A2%E8%81%94%E5%90%88%E4%BC%A0%E6%92%AD%E6%A0%B7%E5%BC%8F-%E7%99%BD%E8%89%B2%E7%89%88.png)
 
@@ -18,8 +67,10 @@
 
 ###  ✨ 简介
 - 本项目基于Wails和NaiveUI开发，结合AI大模型构建的股票分析工具。
-- 目前已支持A股，港股，美股，未来计划加入基金，ETF等支持。
-- 支持市场整体/个股情绪分析，K线技术指标分析等功能。
+- 支持 A股/港股/美股行情、场内ETF基金搜索、基金自选与排行。
+- 内置 AI 智能体（React/PlanExecute/DeepAgents 三种模式）、150+ AI 数据工具、技能系统、MCP 扩展与浮动 AI 助手。
+- 支持 K线分析（复权切换/波浪理论/测量画框/13种绘图工具）、分时与分笔成交、集合竞价、个股资金流向。
+- 支持市场资讯聚合、龙虎榜、涨停梯队、异动监控、知识库与长期记忆、每日操作计划、交易日志、定时预警与飞书/钉钉推送。
 - 本项目仅供娱乐，不喜勿喷，AI分析股票结果仅供学习研究，投资有风险，请谨慎使用。
 - 开发环境主要基于Windows10+，其他平台未测试或功能受限。
 
@@ -41,7 +92,15 @@
 | [Ollama](https://ollama.com/) | ✅ | 本地大模型运行平台                                                                                                                                                                                                                                                         |
 | [LMStudio](https://lmstudio.ai/) | ✅ | 本地大模型运行平台                                                                                                                                                                                                                                                         |
 | [AnythingLLM](https://anythingllm.com/) | ✅ | 本地知识库                                                                                                                                                                                                                                                             |
-| [DeepSeek](https://www.deepseek.com/) | ✅ | deepseek-reasoner,deepseek-chat                                                                                                                                                                                                                                   |
+| [DeepSeek](https://www.deepseek.com/) | ✅ | deepseek-reasoner,deepseek-chat |
+| [智谱AI](https://open.bigmodel.cn/) | ✅ | GLM 系列模型，含 GLM Coding Plan |
+| [字节豆包(火山引擎)](https://www.volcengine.com/) | ✅ | 豆包系列，含 Ark Plan/Coding 套餐 |
+| [阿里云百炼](https://dashscope.aliyun.com/) | ✅ | 通义千问系列，含 Token Plan/Coding Plan |
+| [Moonshot](https://platform.moonshot.cn/) | ✅ | 月之暗面 Kimi |
+| [腾讯混元](https://hunyuan.cloud.tencent.com/) | ✅ | 腾讯混元大模型 |
+| [讯飞星火](https://xinghuo.xfyun.cn/) | ✅ | 科大讯飞星火认知大模型 |
+| [MiniMax](https://www.minimaxi.com/) | ✅ | MiniMax 大模型 |
+| [小米MiMo](https://www.xiaomimimo.com/) | ✅ | 小米 MiMo，含 TokenPlan 套餐                                                                                                                                                                                                                                   |
 | [大模型聚合平台](https://cloud.siliconflow.cn/i/foufCerk) | ✅ | 如：[硅基流动](https://cloud.siliconflow.cn/i/foufCerk)，[火山方舟](https://www.volcengine.com/experience/ark?utm_term=202502dsinvite&ac=DSASUQY5&rc=IJSE43PZ) |
 
 ### <span style="color: #568DF4;">各位亲爱的朋友们，如果您对这个项目感兴趣，请先给我一个<i style="color: #EA2626;">star</i>吧，谢谢！</span>💕
@@ -57,16 +116,26 @@
 | 赞助计划	                           | 赞助等级	          | 权益说明                                                   |
 |:--------------------------------|----------------|:-------------------------------------------------------|
 | 每月 0 RMB	                       | vip0	          | 🌟 全部功能,软件自动更新(从GitHub下载),自行解决github平台网络问题。            |
-| 每月赞助 18.8 RMB<br>每年赞助 120 RMB		 | vip1	          | 💕 全部功能,软件自动更新(从CDN下载),更新快速便捷。AI配置指导，提示词参考等            |
-| 每月赞助 28.8 RMB<br>每年赞助 240 RMB		 | vip2	          | 💕 vip1全部功能,启动时自动同步最近24小时市场资讯(包括外媒简讯)，go-stock Ai助手等   |
+| ~~每月赞助 18.8 RMB<br>每年赞助 120 RMB~~		 | ~~vip1~~	          | ~~💕 全部功能,软件自动更新(从CDN下载),更新快速便捷。AI配置指导，提示词参考等~~ ⚠️ **已停售，推荐赞助 VIP2**            |
+| 每月赞助 28.8 RMB<br>每年赞助 240 RMB		 | vip2	          | 💕 VIP0全部功能,启动时自动同步最近24小时市场资讯(包括外媒简讯)，go-stock Ai助手等   |
 | 每月赞助 X RMB			                   | vipX	          | 🧩 更多计划，视go-stock开源项目发展情况而定...(承接GitHub项目README广告推广💖) |
 
 ## 🧩 重大功能开发计划
 | 功能说明            | 状态 | 备注                                                                                                       |
 |-----------------|----|----------------------------------------------------------------------------------------------------------|
-| 股票分析知识库         | 🚧 | 未来计划                                                                                                     |
+| DeepAgents 模式          | ✅  | 内置任务规划、子 Agent 委派、文件系统与 StreamingShell 集成，Agent 可读取源码运行脚本（2026.08）                                                                       |
+| 技能管理（Skill）           | ✅  | 基于 eino ADK skill 中间件的渐进式提示词注入，支持导入 ZIP 技能包、在线编辑、CodeMirror 6 代码高亮（2026.08）                                                              |
+| 对话摘要中间件               | ✅  | 集成 eino ADK summarization，超阈值自动摘要历史，避免上下文溢出（2026.08）                                                                                   |
+| 提示词模板 API 提供给 AI 调用  | ✅  | OpenAI 工具处理器 + Eino ADK 工具包装器，Agent 可查询使用提示词模板（2026.08）                                                                                  |
+| 知识库与长期记忆 | ✅ | chromem-go 向量库，私有文档库+跨会话经验召回+用户画像学习（2026.08） |
+| ToolSearch 动态工具检索 | ✅ | DeepAgents 模式下 MCP 工具按需检索加载（2026.08） |
+| 波浪理论绘图与测量画框 | ✅ | 5浪结构+斐波那契+测量画框+13种专业绘图工具（2026.07） |
+| 集合竞价与个股资金流向 | ✅ | 通达信MAC协议，A股/港美股分流，支持港股资金流向（2026.07） |
+| 每日操作计划 | ✅ | 多情景预案+盘中自动预警（2026.07） |
+| 飞书应用机器人 | ✅ | 手机端AI助手，飞书卡片协议2.0（2026.07） |
+| 概念标签与分组管理 | ✅ | 多标签/筛选/新建，16个AI工具管理分组与概念（2026.07） |
 | Ai智能选股          | ✅  | Ai智能选股功能(市场行情-》AI总结/AI智能体功能)                                                                             |
-| ETF支持           | 🚧 | ETF数据支持 (目前可以查看净值和估值)                                                                                    |
+| ETF支持 | ✅ | 场内ETF基金搜索与显示，多周期K线（2026.07）                                                                                    |
 | 美股支持            | ✅  | 美股数据支持                                                                                                   |
 | 港股支持            | ✅  | 港股数据支持                                                                                                   |
 | 多轮对话            | ✅  | AI分析后可继续对话提问                                                                                             |
@@ -74,6 +143,30 @@
 | 不再强制依赖Chrome浏览器 | ✅  | 默认使用edge浏览器抓取新闻资讯                                                                                        |
 
 ## 👀 更新日志
+### 2026.08.08 新增财联社财经日历与融资融券 AI 数据工具
+- 新增财联社财经日历 AI 数据工具（GetClsCalendar），查询重要财经事件
+- 新增融资融券余额排名与走势 AI 数据工具（GetRzrqRank / GetRzrqTrend）
+### 2026.08.06 市场行情新增概念板块详情、每日炒作题材与融资融券数据
+- 新增概念板块详情、每日炒作题材（ConceptEventList）与融资融券数据功能
+- 首页新增实时时钟并调整板块排列顺序，新增财联社电报列
+### 2026.08.03 AI 输出股票可点击链接、技能激活与任务清单步骤高亮
+- AI 输出文本中的股票代码可点击跳转至分析页
+- 对话中实时展示已激活技能与 PlanExecute 任务清单步骤高亮
+### 2026.08.01 DeepAgents 模式重大升级：集成文件系统、StreamingShell 与技能管理
+- 引入文件系统 Backend 与 StreamingShell，Agent 可读取项目源码、运行构建/测试命令
+- 子进程控制台窗口自动隐藏（CREATE_NO_WINDOW），Shell 输出流式返回，便于调试
+- 修复 Shell 执行 4 个 bug：Context 泄漏、死锁、重复 Wait()、缺少执行结果摘要
+### 2026.08.01 新增技能管理（Skill）功能：基于 eino ADK skill 中间件的渐进式提示词注入
+- 技能以文件系统目录形式存储（skills/<技能名>/SKILL.md），支持脚本与参考文档
+- 技能管理界面：导入 ZIP 技能包、在线编辑所有文件、新建/删除文件、删除技能
+- 集成 CodeMirror 6 代码编辑器，支持 Python/YAML/JSON 语法高亮
+- 仅在 DeepAgents 模式下生效，AI 按需发现并加载匹配技能，节省上下文 token
+### 2026.08.01 AI Agent 增强：集成摘要中间件与提示词模板 API
+- 集成 eino ADK summarization 中间件，对话 token 超阈值时自动摘要历史（120k token / 80 消息触发），原始对话转存 logs/agent_transcript.md
+- 提示词模板 API 接口提供给 AI 调用（OpenAI 工具处理器 + Eino ADK 工具包装器），Agent 可查询使用提示词模板
+- 浮动 AI 助手缓存执行参数（模型/系统提示词/用户提示词/思考模式/记忆模式/Agent 模式），避免用户每次重选
+### 2026.05.20 多周期K线图：新增SATS自感知趋势指标+13个TV指标集成
+### 2026.05.15 新增基金K线和基金前十大重仓持仓数据功能
 ### 2026.04.12 引入AgentMode类型支持React和PlanExecute两种代理模式
 ### 2026.04.11 引入MCP工具调用支持支持
 ### 2026.04.04 添加节假日工具支持
@@ -169,15 +262,17 @@
 - [Vite](https://vitejs.dev/)
 - [Tushare](https://tushare.pro/register?reg=701944)
 
-## 😘 赞助我
-### 都划到这了，如果我的项目对您有帮助，请赞助我吧！😊😊😊
-| 支付宝 | 微信  |
-|-----|-----| 
-| ![alipay.jpg](build/screenshot/alipay.jpg)  | ![wxpay.jpg](build/screenshot/wxpay.jpg) |
 
 
 ## ⭐ Star History
-[![Star History Chart](https://api.star-history.com/svg?repos=ArvinLovegood/go-stock&type=Date)](https://star-history.com/#ArvinLovegood/go-stock&Date)
+<a href="https://www.star-history.com/?repos=ArvinLovegood%2Fgo-stock&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ArvinLovegood/go-stock&type=date&theme=dark&legend=top-left&sealed_token=v0N4_yMF24lv7OpfWCO3O1wo4Uwy0VjIsJ5qwwsIwEF4A56MdI6nHkqhEzkKymHUvmjlD78zvdwTfg2D0JMcQNt-_KyxVlg7QWPCgln7DXSB7yr2lyYp5g" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ArvinLovegood/go-stock&type=date&legend=top-left&sealed_token=v0N4_yMF24lv7OpfWCO3O1wo4Uwy0VjIsJ5qwwsIwEF4A56MdI6nHkqhEzkKymHUvmjlD78zvdwTfg2D0JMcQNt-_KyxVlg7QWPCgln7DXSB7yr2lyYp5g" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ArvinLovegood/go-stock&type=date&legend=top-left&sealed_token=v0N4_yMF24lv7OpfWCO3O1wo4Uwy0VjIsJ5qwwsIwEF4A56MdI6nHkqhEzkKymHUvmjlD78zvdwTfg2D0JMcQNt-_KyxVlg7QWPCgln7DXSB7yr2lyYp5g" />
+ </picture>
+</a>
+
 ## 🤖 状态
 ![Alt](https://repobeats.axiom.co/api/embed/40b07d415a42c2264a18c4fe1b6f182ff1470687.svg "Repobeats analytics image")
 

@@ -18,7 +18,7 @@ type DingDingAPI struct {
 
 func NewDingDingAPI() *DingDingAPI {
 	return &DingDingAPI{
-		client: resty.New(),
+		client: SharedHTTPClient,
 	}
 }
 
@@ -28,7 +28,7 @@ func (DingDingAPI) SendDingDingMessage(message string) string {
 		return "钉钉推送未开启"
 	}
 	// 发送钉钉消息
-	resp, err := resty.New().R().
+	resp, err := SharedHTTPClient.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(message).
 		Post(getApiURL())
@@ -54,7 +54,7 @@ func (DingDingAPI) SendToDingDing(title, message string) string {
 		"\\\\t": "\t",
 	})
 	// 发送钉钉消息
-	resp, err := resty.New().R().
+	resp, err := SharedHTTPClient.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(&Message{
 			Msgtype: "markdown",

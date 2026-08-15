@@ -11,7 +11,9 @@ import (
 	"time"
 
 	einomcp "github.com/cloudwego/eino-ext/components/tool/mcp"
+	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -34,9 +36,10 @@ func (a *MCPServerApi) Update(server *models.MCPServer) error {
 		"name":        server.Name,
 		"description": server.Description,
 		"url":         server.URL,
+		"type":        server.Type,
+		"headers":     server.Headers,
 		"command":     server.Command,
 		"args":        server.Args,
-		"env":         server.Env,
 		"enable":      server.Enable,
 		"status":      server.Status,
 	}
@@ -129,6 +132,94 @@ func (a *MCPServerApi) SearchServers(keyword string) []models.MCPServer {
 	return servers
 }
 
+func parseMCPHeaders(headersStr string) map[string]string {
+	return ParseHeaders(headersStr)
+}
+
+// ParseHeaders 解析 JSON 格式的 HTTP Headers 字符串为 map。
+// 供 agent 层在 einomcp.Config.CustomHeaders 中使用，确保工具调用（tools/call）
+// 请求时也带上自定义 header（如 X-api-key），而不仅仅是 transport 层的 initialize/list 请求。
+func ParseHeaders(headersStr string) map[string]string {
+	if headersStr == "" {
+		return nil
+	}
+	var headers map[string]string
+	if err := json.Unmarshal([]byte(headersStr), &headers); err != nil {
+		logger.SugaredLogger.Warnf("解析MCP Headers失败: %v", err)
+		return nil
+	}
+	return headers
+}
+
+// ExpandHeaderVars 展开 Header 值中的模板变量。
+// 支持的变量：
+//   - {{sessionId}} / {{conversationId}}：替换为传入的 sessionId（为空则自动生成 UUID）
+//   - {{uuid}}：每次调用生成新的 UUID
+func ExpandHeaderVars(val, sessionId string) string {
+	s := sessionId
+	if s == "" {
+		s = uuid.NewString()
+	}
+	val = strings.ReplaceAll(val, "{{sessionId}}", s)
+	val = strings.ReplaceAll(val, "{{conversationId}}", s)
+	val = strings.ReplaceAll(val, "{{uuid}}", uuid.NewString())
+	return val
+}
+
+// BuildExtraHeaders 解析 AIConfig.ExtraHeaders（JSON 字符串）并展开模板变量，
+// 返回可直接用于 HTTP 请求的 header map。sessionId 为空时自动生成。
+func BuildExtraHeaders(extraHeadersStr, sessionId string) map[string]string {
+	raw := ParseHeaders(extraHeadersStr)
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for k, v := range raw {
+		out[k] = ExpandHeaderVars(v, sessionId)
+	}
+	return out
+}
+
+func CreateMCPClient(server *models.MCPServer) (*client.Client, error) {
+	headers := parseMCPHeaders(server.Headers)
+
+	switch server.Type {
+	case "sse":
+		opts := []transport.ClientOption{}
+		if len(headers) > 0 {
+			opts = append(opts, transport.WithHeaders(headers))
+		}
+		return client.NewSSEMCPClient(server.URL, opts...)
+	default:
+		opts := []transport.StreamableHTTPCOption{}
+		if len(headers) > 0 {
+			opts = append(opts, transport.WithHTTPHeaders(headers))
+		}
+		return client.NewStreamableHttpClient(server.URL, opts...)
+	}
+}
+
+func InitMCPClient(ctx context.Context, server *models.MCPServer) (*client.Client, error) {
+	cli, err := CreateMCPClient(server)
+	if err != nil {
+		return nil, fmt.Errorf("创建MCP客户端失败: %w", err)
+	}
+
+	initRequest := mcp.InitializeRequest{}
+	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initRequest.Params.ClientInfo = mcp.Implementation{
+		Name:    "go-stock",
+		Version: "1.0.0",
+	}
+
+	_, err = cli.Initialize(ctx, initRequest)
+	if err != nil {
+		return nil, fmt.Errorf("初始化MCP连接失败: %w", err)
+	}
+
+	return cli, nil
+}
+
 func (a *MCPServerApi) TestConnection(id uint) (string, error) {
 	server, err := a.GetByID(id)
 	if err != nil {
@@ -145,9 +236,9 @@ func (a *MCPServerApi) TestConnection(id uint) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cli, err := client.NewStreamableHttpClient(server.URL)
+	cli, err := InitMCPClient(ctx, server)
 	if err != nil {
-		errMsg := fmt.Sprintf("创建MCP客户端失败: %s", err.Error())
+		errMsg := err.Error()
 		a.UpdateStatus(id, "unavailable", errMsg)
 		return "", fmt.Errorf("%s", errMsg)
 	}
@@ -166,7 +257,10 @@ func (a *MCPServerApi) TestConnection(id uint) (string, error) {
 		return "", fmt.Errorf("%s", errMsg)
 	}
 
-	tools, err := einomcp.GetTools(ctx, &einomcp.Config{Cli: cli})
+	tools, err := einomcp.GetTools(ctx, &einomcp.Config{
+		Cli:           cli,
+		CustomHeaders: ParseHeaders(server.Headers),
+	})
 	if err != nil {
 		errMsg := fmt.Sprintf("获取工具列表失败: %s", err.Error())
 		a.UpdateStatus(id, "unavailable", errMsg)

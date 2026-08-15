@@ -15,11 +15,13 @@ import (
 
 	"github.com/duke-git/lancet/v2/convertor"
 	"github.com/duke-git/lancet/v2/strutil"
-	"github.com/energye/systray"
+	"github.com/getlantern/systray"
 	"github.com/go-toast/toast"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+var systrayInitialized bool
 
 const (
 	monitorDefaultToPrimary = 1
@@ -27,44 +29,67 @@ const (
 	logicalDpi              = 96
 )
 
+func InitSystray(a *App) {
+	go func() {
+		defer PanicHandler()
+
+		systray.Run(func() {
+			systray.SetIcon(icon2)
+			systray.SetTitle("go-stock")
+			systray.SetTooltip("go-stock：AI赋能股票分析")
+
+			mShow := systray.AddMenuItem("显示窗口", "显示主窗口")
+			mQuit := systray.AddMenuItem("退出程序", "退出应用程序")
+
+			go func() {
+				for {
+					select {
+					case <-mShow.ClickedCh:
+						runtime.WindowShow(a.ctx)
+						runtime.WindowUnminimise(a.ctx)
+						runtime.WindowShow(a.ctx)
+					case <-mQuit.ClickedCh:
+						systray.Quit()
+						runtime.Quit(a.ctx)
+					}
+				}
+			}()
+		}, func() {
+			// cleanup
+		})
+	}()
+	systrayInitialized = true
+}
+
+func UpdateSystrayTooltip(text string) {
+	if systrayInitialized {
+		systray.SetTooltip(text)
+	}
+}
+
 // startup is called at application startup
 func (a *App) startup(ctx context.Context) {
 	defer PanicHandler()
+
+	data.ConfigureFromSettings(data.GetSettingConfig())
+
 	runtime.EventsOn(ctx, "frontendError", func(optionalData ...interface{}) {
 		logger.SugaredLogger.Errorf("Frontend error: %v\n", optionalData)
 	})
-	//logger.SugaredLogger.Infof("Version:%s", Version)
-	// Perform your setup here
+
+	InitSystray(a)
+
 	a.ctx = ctx
 
-	// 应用启动时自动创建已启用的定时任务
+	// 设置全局 Wails 上下文，供 AI 工具修改分组/概念后向前端推送刷新事件
+	data.SetAppCtx(ctx)
+
 	a.InitCronTasks()
 
-	// 创建系统托盘
-	//systray.RunWithExternalLoop(func() {
-	//	onReady(a)
-	//}, func() {
-	//	onExit(a)
-	//})
-	runtime.EventsOn(ctx, "updateSettings", func(optionalData ...interface{}) {
-		//logger.SugaredLogger.Infof("updateSettings : %v\n", optionalData)
-		config := data.GetSettingConfig()
-		//setMap := optionalData[0].(map[string]interface{})
-		//
-		//// 将 map 转换为 JSON 字节切片
-		//jsonData, err := json.Marshal(setMap)
-		//if err != nil {
-		//	logger.SugaredLogger.Errorf("Marshal error:%s", err.Error())
-		//	return
-		//}
-		//// 将 JSON 字节切片解析到结构体中
-		//err = json.Unmarshal(jsonData, config)
-		//if err != nil {
-		//	logger.SugaredLogger.Errorf("Unmarshal error:%s", err.Error())
-		//	return
-		//}
+	preCacheTradingDays()
 
-		//logger.SugaredLogger.Infof("updateSettings config:%+v", config)
+	runtime.EventsOn(ctx, "updateSettings", func(optionalData ...interface{}) {
+		config := data.GetSettingConfig()
 		if config.DarkTheme {
 			runtime.WindowSetBackgroundColour(ctx, 27, 38, 54, 1)
 			runtime.WindowSetDarkTheme(ctx)
@@ -73,15 +98,7 @@ func (a *App) startup(ctx context.Context) {
 			runtime.WindowSetLightTheme(ctx)
 		}
 		runtime.WindowReloadApp(ctx)
-
 	})
-	go systray.Run(func() {
-		onReady(a)
-	}, func() {
-		onExit(a)
-	})
-
-	//logger.SugaredLogger.Infof(" application startup Version:%s", Version)
 }
 
 func OnSecondInstanceLaunch(secondInstanceData options.SecondInstanceData) {
@@ -147,52 +164,23 @@ func MonitorStockPrices(a *App) {
 		}
 
 	}
-	if total != 0 {
-		title := "go-stock " + time.Now().Format(time.DateTime) + fmt.Sprintf("  %.2f¥", total)
-		systray.SetTooltip(title)
-	}
+	//if total != 0 {
+	//	title := "go-stock " + time.Now().Format(time.DateTime) + fmt.Sprintf("  %.2f¥", total)
+	//	go func() {
+	//		defer PanicHandler()
+	//		systray.SetTooltip(title)
+	//	}()
+	//}
 
 	go runtime.EventsEmit(a.ctx, "realtime_profit", fmt.Sprintf("  %.2f", total))
-	//runtime.WindowSetTitle(a.ctx, title)
 
-}
-
-func onReady(a *App) {
-
-	// 初始化操作
-	//logger.SugaredLogger.Infof("systray onReady")
-	systray.SetIcon(icon2)
-	systray.SetTitle("go-stock")
-	systray.SetTooltip("go-stock 股票行情实时获取")
-	// 创建菜单项
-	show := systray.AddMenuItem("显示", "显示应用程序")
-	show.Click(func() {
-		//logger.SugaredLogger.Infof("显示应用程序")
-		runtime.WindowShow(a.ctx)
-	})
-	hide := systray.AddMenuItem("隐藏", "隐藏应用程序")
-	hide.Click(func() {
-		//logger.SugaredLogger.Infof("隐藏应用程序")
-		runtime.WindowHide(a.ctx)
-	})
-	systray.AddSeparator()
-	mQuitOrig := systray.AddMenuItem("退出", "退出应用程序")
-	mQuitOrig.Click(func() {
-		//logger.SugaredLogger.Infof("退出应用程序")
-		runtime.Quit(a.ctx)
-	})
-	systray.SetOnRClick(func(menu systray.IMenu) {
-		menu.ShowMenu()
-		//logger.SugaredLogger.Infof("SetOnRClick")
-	})
-	systray.SetOnClick(func(menu systray.IMenu) {
-		//logger.SugaredLogger.Infof("SetOnClick")
-		menu.ShowMenu()
-	})
-	systray.SetOnDClick(func(menu systray.IMenu) {
-		menu.ShowMenu()
-		//logger.SugaredLogger.Infof("SetOnDClick")
-	})
+	if total != 0 {
+		title := "go-stock " + time.Now().Format(time.DateTime) + fmt.Sprintf("  %.2f¥", total)
+		go func() {
+			defer PanicHandler()
+			UpdateSystrayTooltip(title)
+		}()
+	}
 }
 
 // beforeClose is called when the application is about to quit,
@@ -201,39 +189,48 @@ func onReady(a *App) {
 func (a *App) beforeClose(ctx context.Context) (prevent bool) {
 	defer PanicHandler()
 
-	// 记录当前窗口大小，供下次启动时还原
 	if a.ctx != nil {
 		w, h := runtime.WindowGetSize(ctx)
-		//logger.SugaredLogger.Infof(" window size: %dx%d", w, h)
 		if w > 0 && h > 0 {
 			cfg := data.GetSettingConfig()
 			cfg.WindowWidth = w
 			cfg.WindowHeight = h
 			data.UpdateConfig(cfg)
-			//logger.SugaredLogger.Infof("save window size: %dx%d", w, h)
 		}
-	}
 
-	dialog, err := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
-		Type:         runtime.QuestionDialog,
-		Title:        "go-stock",
-		Message:      "确定关闭吗？",
-		Buttons:      []string{"确定"},
-		Icon:         icon2,
-		CancelButton: "取消",
-	})
-
-	if err != nil {
-		logger.SugaredLogger.Errorf("dialog error:%s", err.Error())
-		return false
-	}
-	logger.SugaredLogger.Debugf("dialog:%s", dialog)
-	if dialog == "No" {
+		dialog, err := runtime.MessageDialog(ctx, runtime.MessageDialogOptions{
+			Type:         runtime.QuestionDialog,
+			Title:        "go-stock",
+			Message:      "确定关闭吗？",
+			Buttons:      []string{"确定", "取消"},
+			Icon:         icon2,
+			CancelButton: "取消",
+		})
+		if err != nil {
+			return true
+		}
+		logger.SugaredLogger.Debugf("dialog:%s", dialog)
+		if dialog == "确定" || dialog == "Yes" {
+			if a.cron != nil {
+				a.cron.Stop()
+			}
+			return false
+		}
 		return true
-	} else {
-		systray.Quit()
-		a.cron.Stop()
-		return false
+	}
+	return false
+}
+
+func (a *App) HideToTray() {
+	if a.ctx != nil {
+		runtime.WindowHide(a.ctx)
+	}
+}
+
+func (a *App) ShowFromTray() {
+	if a.ctx != nil {
+		runtime.WindowShow(a.ctx)
+		runtime.WindowUnminimise(a.ctx)
 	}
 }
 

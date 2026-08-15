@@ -287,10 +287,10 @@ function deleteAIResponseResult(id){
 
 
 
-  <n-modal transform-origin="center" v-model:show="editorDataRef.show" preset="card" style="width: 800px;"
+  <n-modal transform-origin="center" v-model:show="editorDataRef.show" preset="card" style="width: 800px;max-width: calc(100vw - 32px);"
            :title="'['+editorDataRef.stockName+']AI分析'">
     <n-spin size="small" :show="editorDataRef.loading">
-      <MdPreview  ref="mdPreviewRef" style="height: 540px;text-align: left"
+      <MdPreview  ref="mdPreviewRef" style="height: 540px;max-height: 60vh;text-align: left;overflow-y: auto;"
                  :modelValue="editorDataRef.content" :theme="theme"/>
     </n-spin>
     <template #footer>

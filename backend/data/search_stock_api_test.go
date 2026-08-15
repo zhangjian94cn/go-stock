@@ -65,13 +65,13 @@ func TestSearchStock(t *testing.T) {
 
 func TestGetStockFinancialInfo(t *testing.T) {
 	db.Init("../../data/stock.db")
-	res := NewStockDataApi().GetStockFinancialInfo("600519.SH")
-	MD := util.MarkdownTableWithTitle("600519.SH股票财报信息", res.Result.Data)
+	res := NewStockDataApi().GetStockFinancialInfo("300390.SZ")
+	MD := util.MarkdownTableWithTitle("300390.SZ股票财报信息", res.Result.Data)
 	logger.SugaredLogger.Infof("res:\n%s", MD)
 }
 func TestGetStockHolderNum(t *testing.T) {
 	db.Init("../../data/stock.db")
-	res := NewStockDataApi().GetStockHolderNum("600519.SH")
+	res := NewStockDataApi().GetStockHolderNum("300390.SZ")
 	MD := util.MarkdownTableWithTitle("股票股东人数信息", res.Result.Data)
 	logger.SugaredLogger.Infof("res:\n%s", MD)
 }

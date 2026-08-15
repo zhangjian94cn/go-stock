@@ -9,6 +9,7 @@ import (
 	"go-stock/backend/data"
 	"go-stock/backend/db"
 	log "go-stock/backend/logger"
+	"go-stock/backend/machineid"
 	"go-stock/backend/models"
 	"os"
 	"runtime/debug"
@@ -53,6 +54,9 @@ var stocksBinHK []byte
 //go:embed build/stock_base_info_us.json
 var stocksBinUS []byte
 
+//go:embed docs/go-stock使用手册.md
+var userManual []byte
+
 //go:generate cp -R ./data ./build/bin
 
 var Version string
@@ -69,7 +73,9 @@ func main() {
 	}()
 
 	checkDir("data")
+	machineid.Init(BuildKey)
 	data.SponsorDecryptKeyHex = BuildKey
+	data.SetAppIcon(icon)
 	db.Init("")
 	data.InitAnalyzeSentiment()
 	go AutoMigrate()
@@ -165,7 +171,7 @@ func main() {
 
 	// Create application with options
 	err = wails.Run(&options.App{
-		Title: "go-stock：AI赋能股票分析✨ " + OFFICIAL_STATEMENT + " " + convertor.ToString(appWidth) + "x" + convertor.ToString(appHeight),
+		Title: "go-stock：AI赋能股票分析✨ " + OFFICIAL_STATEMENT,
 		// 默认窗口大小：自适应但保留明显边距
 		Width:  appWidth,
 		Height: appHeight,
@@ -178,7 +184,6 @@ func main() {
 		Fullscreen:               false,
 		Frameless:                false,
 		StartHidden:              false,
-		HideWindowOnClose:        false,
 		EnableDefaultContextMenu: true,
 		BackgroundColour:         backgroundColour,
 		Assets:                   assets,
@@ -192,7 +197,7 @@ func main() {
 		OnShutdown:               app.shutdown,
 		WindowStartState:         options.Normal,
 		SingleInstanceLock: &options.SingleInstanceLock{
-			UniqueId:               "go-stock-dev",
+			UniqueId:               "go-stock",
 			OnSecondInstanceLaunch: OnSecondInstanceLaunch,
 		},
 		Bind: []interface{}{
@@ -277,6 +282,8 @@ func AutoMigrate() {
 	db.Dao.AutoMigrate(&models.PromptTemplate{})
 	db.Dao.AutoMigrate(&data.Group{})
 	db.Dao.AutoMigrate(&data.GroupStock{})
+	db.Dao.AutoMigrate(&data.Concept{})
+	db.Dao.AutoMigrate(&data.ConceptStock{})
 	db.Dao.AutoMigrate(&models.Tags{})
 	db.Dao.AutoMigrate(&models.Telegraph{})
 	db.Dao.AutoMigrate(&models.TelegraphTags{})
@@ -294,6 +301,10 @@ func AutoMigrate() {
 	db.Dao.AutoMigrate(&models.MCPServer{})
 	db.Dao.AutoMigrate(&models.MCPServerTool{})
 	db.Dao.AutoMigrate(&models.Skill{})
+	db.Dao.AutoMigrate(&models.CustomStrategy{})
+	db.Dao.AutoMigrate(&models.BKFundFlow{})
+	db.Dao.AutoMigrate(&models.ConceptFundFlow{})
+	db.Dao.AutoMigrate(&models.DailyOperationPlan{})
 
 	//updateMultipleModel()
 

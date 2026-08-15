@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -63,6 +64,14 @@ func EastMoneyKLineSection(api *EastMoneyKLineApi, stockCode, kLineType, adjustF
 	} else {
 		list = api.GetKLineData(stockCode, kType, strings.TrimSpace(adjustFlag), int(limit))
 	}
+	var sourceLabel string
+	if list == nil || len(*list) == 0 {
+		fallbackResult := FetchKLineWithFallback(stockCode, "", kType, limit, "")
+		if fallbackResult.Data != nil && len(*fallbackResult.Data) > 0 {
+			list = fallbackResult.Data
+			sourceLabel = fallbackResult.Source
+		}
+	}
 	if list == nil || len(*list) == 0 {
 		return stockCode + "：未获取到 K 线数据，请检查股票代码与类型。"
 	}
@@ -91,7 +100,11 @@ func EastMoneyKLineSection(api *EastMoneyKLineApi, stockCode, kLineType, adjustF
 	if typeLabel == "" {
 		typeLabel = kType
 	}
-	return "\r\n### " + stockCode + " " + typeLabel + " K线（共 " + convertor.ToString(len(*list)) + " 条）\r\n" + markdownTable + "\r\n"
+	sourceInfo := ""
+	if sourceLabel != "" {
+		sourceInfo = "（数据源：" + sourceLabel + "）"
+	}
+	return "\r\n### " + stockCode + " " + typeLabel + " K线（共 " + convertor.ToString(len(*list)) + " 条）" + sourceInfo + "\r\n" + markdownTable + "\r\n"
 }
 
 func handleGetEastMoneyKLine(o *OpenAi, funcArguments string, ctx *ToolContext) error {
@@ -117,7 +130,12 @@ func handleGetEastMoneyKLine(o *OpenAi, funcArguments string, ctx *ToolContext) 
 		"time":              time.Now().Format(time.DateTime),
 	}
 
+	kType := normalizeKLineType(kLineType)
 	res := parallelStockToolSections(codes, func(stockCode string) string {
+		// A股优先使用 FetchKLineWithFallback（MAC→东方财富→新浪→腾讯→通达信）
+		if IsAStockCode(stockCode) {
+			return FetchKLineWithFallbackAsSection(stockCode, kType, limit)
+		}
 		api := NewEastMoneyKLineApi(GetSettingConfig())
 		return EastMoneyKLineSection(api, stockCode, kLineType, adjustFlag, limit)
 	})
@@ -176,7 +194,15 @@ func EastMoneyKLineWithMASection(api *EastMoneyKLineApi, stockCode, kLineType st
 	kType := normalizeKLineType(kLineType)
 	maPeriods := parseMaPeriods(maPeriodsStr)
 	list, err := api.GetKLineWithMA(stockCode, kType, int(limit), maPeriods...)
+	var sourceLabel string
 	if err != nil || list == nil || len(*list) == 0 {
+		fallbackResult := FetchKLineWithFallback(stockCode, "", kType, limit, "")
+		if fallbackResult.Data != nil && len(*fallbackResult.Data) > 0 {
+			list = fallbackResult.Data
+			sourceLabel = fallbackResult.Source
+		}
+	}
+	if list == nil || len(*list) == 0 {
 		return stockCode + "：未获取到带均线的 K 线数据，请检查股票代码与参数。"
 	}
 	maLabels := make([]string, 0, len(maPeriods))
@@ -222,7 +248,11 @@ func EastMoneyKLineWithMASection(api *EastMoneyKLineApi, stockCode, kLineType st
 	if typeLabel == "" {
 		typeLabel = kType
 	}
-	return "\r\n### " + stockCode + " " + typeLabel + " K线+均线（共 " + convertor.ToString(len(*list)) + " 条）\r\n" + markdownTable + "\r\n"
+	sourceInfo := ""
+	if sourceLabel != "" {
+		sourceInfo = "（数据源：" + sourceLabel + "）"
+	}
+	return "\r\n### " + stockCode + " " + typeLabel + " K线+均线（共 " + convertor.ToString(len(*list)) + " 条）" + sourceInfo + "\r\n" + markdownTable + "\r\n"
 }
 
 func handleGetEastMoneyKLineWithMA(o *OpenAi, funcArguments string, ctx *ToolContext) error {
@@ -249,10 +279,206 @@ func handleGetEastMoneyKLineWithMA(o *OpenAi, funcArguments string, ctx *ToolCon
 	}
 
 	res := parallelStockToolSections(codes, func(stockCode string) string {
+		// A股优先使用 FetchKLineWithFallback + 均线计算
+		if IsAStockCode(stockCode) {
+			return FetchKLineWithMASection(stockCode, normalizeKLineType(kLineType), limit, maPeriodsStr)
+		}
 		api := NewEastMoneyKLineApi(GetSettingConfig())
 		return EastMoneyKLineWithMASection(api, stockCode, kLineType, limit, maPeriodsStr)
 	})
 	appendToolMessages(ctx.Messages, ctx.CurrentAIContent.String(), ctx.ReasoningContentText.String(),
 		ctx.CurrentCallID, ctx.FuncName, funcArguments, res)
 	return nil
+}
+
+// IsAStockCode 判断股票代码是否为A股（沪深京市场）
+func IsAStockCode(code string) bool {
+	return strings.HasSuffix(code, ".SZ") || strings.HasSuffix(code, ".SH") || strings.HasSuffix(code, ".BJ")
+}
+
+// IsHKStockCode 判断股票代码是否为港股
+func IsHKStockCode(code string) bool {
+	upper := strings.ToUpper(code)
+	return strings.HasSuffix(upper, ".HK") || strings.HasPrefix(upper, "HK")
+}
+
+// IsHKCodeForRoute 财务工具路由用的港股代码识别，比 IsHKStockCode 更宽松。
+// 除 .HK 后缀/HK 前缀外，还识别纯 5 位数字代码（A 股均为 6 位代码，5 位纯数字几乎必为港股）。
+// 仅用于工具调用路由判断，不改变 K 线/竞价/资金流向等模块的 IsHKStockCode 行为。
+func IsHKCodeForRoute(code string) bool {
+	if IsHKStockCode(code) {
+		return true
+	}
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return false
+	}
+	// 纯数字且长度 ≤ 5 视为港股（A 股均为 6 位代码）
+	for i := 0; i < len(code); i++ {
+		if code[i] < '0' || code[i] > '9' {
+			return false
+		}
+	}
+	return len(code) <= 5
+}
+
+// IsUSStockCode 判断股票代码是否为美股
+func IsUSStockCode(code string) bool {
+	upper := strings.ToUpper(code)
+	return strings.HasSuffix(upper, ".US") || strings.HasPrefix(upper, "US") || strings.HasPrefix(upper, "GB_")
+}
+
+// IsCSIIndexCode 判断代码是否为中证指数（.CSI 后缀，如 930599.CSI 中证高端装备制造）。
+// 此类指数无沪/深市镜像代码，走通达信扩展行情 ExKLine2 + category=62（ExCategoryCSIIndex），
+// 东方财富作为降级源（secid 前缀 90.）。新浪/腾讯/通达信标准协议均不支持。
+func IsCSIIndexCode(code string) bool {
+	return strings.HasSuffix(strings.ToUpper(code), ".CSI")
+}
+
+// IsGlobalIndexCode 判断代码是否为海外指数（100.XXX 前缀，如 100.DJIA 道琼斯/100.SPX 标普500/100.NDX 纳斯达克/100.HSI 恒生）。
+// 东方财富 secid 前缀 100 = 海外指数，代码为字母（DJIA/SPX/NDX/HSI），convertStockCode 原样返回即为有效 secid。
+// MAC 主客户端不识别此类代码（tdxMarketFromStockCode 会落入 default 返回 MarketSH，
+// MACSymbolBars 把 "100.DJIA" 当沪市代码查询返回错误非空数据），故海外指数不走 MAC，直接走东方财富。
+// 新浪/腾讯/通达信标准协议均不支持海外指数。
+func IsGlobalIndexCode(code string) bool {
+	upper := strings.ToUpper(strings.TrimSpace(code))
+	if !strings.HasPrefix(upper, "100.") {
+		return false
+	}
+	suffix := upper[len("100."):]
+	// 海外指数代码为字母（如 DJIA/SPX/NDX/HSI），排除纯数字后缀
+	if suffix == "" {
+		return false
+	}
+	for _, c := range suffix {
+		if c >= '0' && c <= '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// NormalizeKLineType 导出 normalizeKLineType 供外部包使用
+func NormalizeKLineType(s string) string {
+	return normalizeKLineType(s)
+}
+
+// FetchKLineWithFallbackAsSection 使用 FetchKLineWithFallback 获取K线数据并格式化为 markdown section
+func FetchKLineWithFallbackAsSection(stockCode, klt string, limit int) string {
+	kType := normalizeKLineType(klt)
+	fallbackResult := FetchKLineWithFallback(stockCode, "", kType, limit, "")
+	if fallbackResult.Data == nil || len(*fallbackResult.Data) == 0 {
+		return stockCode + "：未获取到 K 线数据，请检查股票代码与类型。"
+	}
+	list := fallbackResult.Data
+	rows := make([]map[string]any, 0, len(*list))
+	for _, k := range *list {
+		vol, _ := convertor.ToFloat(k.Volume)
+		rows = append(rows, map[string]any{
+			"日期":      k.Day,
+			"开盘价":     k.Open,
+			"收盘价":     k.Close,
+			"最高价":     k.High,
+			"最低价":     k.Low,
+			"成交量(万手)": vol / 10000 / 100,
+			"涨跌幅(%)":  k.ChangePercent,
+			"涨跌额":     k.ChangeValue,
+			"振幅(%)":   k.Amplitude,
+			"换手率(%)":  k.TurnoverRate,
+		})
+	}
+	jsonData, _ := json.Marshal(rows)
+	markdownTable, err := JSONToMarkdownTable(jsonData)
+	if err != nil {
+		markdownTable = string(jsonData)
+	}
+	sourceInfo := ""
+	if fallbackResult.Source != "" {
+		sourceInfo = "（数据源：" + fallbackResult.Source + "）"
+	}
+	return "\r\n### " + stockCode + " " + klt + " K线（共 " + convertor.ToString(len(*list)) + " 条）" + sourceInfo + "\r\n" + markdownTable + "\r\n"
+}
+
+// FetchKLineWithMASection 使用 FetchKLineWithFallback 获取K线数据并附均线，格式化为 markdown section
+func FetchKLineWithMASection(stockCode, klt string, limit int, maPeriodsStr string) string {
+	kType := normalizeKLineType(klt)
+	fallbackResult := FetchKLineWithFallback(stockCode, "", kType, limit, "")
+	if fallbackResult.Data == nil || len(*fallbackResult.Data) == 0 {
+		return stockCode + "：未获取到带均线的 K 线数据，请检查股票代码与参数。"
+	}
+	list := fallbackResult.Data
+
+	// 计算均线
+	maPeriods := parseMaPeriods(maPeriodsStr)
+	if len(maPeriods) == 0 {
+		maPeriods = []int{5, 10, 20, 60, 120}
+	}
+	calculateSMA(list, maPeriods)
+
+	maLabels := make([]string, 0, len(maPeriods))
+	for _, p := range maPeriods {
+		maLabels = append(maLabels, "MA"+strconv.Itoa(p))
+	}
+
+	rows := make([]map[string]any, 0, len(*list))
+	for _, k := range *list {
+		vol, _ := convertor.ToFloat(k.Volume)
+		row := map[string]any{
+			"日期":      k.Day,
+			"开盘价":     k.Open,
+			"收盘价":     k.Close,
+			"最高价":     k.High,
+			"最低价":     k.Low,
+			"成交量(万手)": vol / 10000 / 100,
+			"涨跌幅(%)":  k.ChangePercent,
+			"涨跌额":     k.ChangeValue,
+			"振幅(%)":   k.Amplitude,
+			"换手率(%)":  k.TurnoverRate,
+		}
+		for _, label := range maLabels {
+			p := strings.TrimPrefix(label, "MA")
+			if v, ok := k.MA[p]; ok && v != "" {
+				row[label] = v
+			}
+		}
+		rows = append(rows, row)
+	}
+	jsonData, _ := json.Marshal(rows)
+	markdownTable, err := JSONToMarkdownTable(jsonData)
+	if err != nil {
+		markdownTable = string(jsonData)
+	}
+	sourceInfo := ""
+	if fallbackResult.Source != "" {
+		sourceInfo = "（数据源：" + fallbackResult.Source + "）"
+	}
+	return "\r\n### " + stockCode + " " + klt + " K线+均线（共 " + convertor.ToString(len(*list)) + " 条）" + sourceInfo + "\r\n" + markdownTable + "\r\n"
+}
+
+// calculateSMA 按收盘价计算简单移动均线，写入 KLineData.MA
+func calculateSMA(list *[]KLineData, periods []int) {
+	if list == nil || len(*list) == 0 {
+		return
+	}
+	n := len(*list)
+	closes := make([]float64, n)
+	for i, k := range *list {
+		closes[i], _ = strconv.ParseFloat(k.Close, 64)
+	}
+	for _, p := range periods {
+		if p > n {
+			continue
+		}
+		for i := p - 1; i < n; i++ {
+			sum := 0.0
+			for j := i - p + 1; j <= i; j++ {
+				sum += closes[j]
+			}
+			avg := sum / float64(p)
+			if (*list)[i].MA == nil {
+				(*list)[i].MA = make(map[string]string)
+			}
+			(*list)[i].MA[strconv.Itoa(p)] = fmt.Sprintf("%.2f", avg)
+		}
+	}
 }

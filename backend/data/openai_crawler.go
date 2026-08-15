@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -11,8 +12,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/chromedp/chromedp"
+	"github.com/duke-git/lancet/v2/convertor"
 	"github.com/duke-git/lancet/v2/strutil"
-	"github.com/go-resty/resty/v2"
 )
 
 func checkIsIndexBasic(stock string) bool {
@@ -152,30 +153,48 @@ func GetFinancialReports(stockCode string, crawlTimeOut int64) *[]string {
 }
 
 func GetTelegraphList(crawlTimeOut int64) *[]string {
-	url := "https://www.cls.cn/telegraph"
-	response, err := resty.New().SetTimeout(time.Duration(crawlTimeOut)*time.Second).R().
+	clsURL := "https://www.cls.cn/api/cache?app=CailianpressWeb&name=telegraph&os=web&sv=8.7.9"
+	response, err := SharedHTTPClient.SetTimeout(time.Duration(crawlTimeOut)*time.Second).R().
 		SetHeader("Referer", "https://www.cls.cn/").
-		SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36 Edg/117.0.2045.60").
-		Get(url)
+		SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0").
+		Get(clsURL)
 	if err != nil {
 		return &[]string{}
 	}
-	//logger.SugaredLogger.Info(string(response.Body()))
-	document, err := goquery.NewDocumentFromReader(strings.NewReader(string(response.Body())))
-	if err != nil {
+	res := map[string]any{}
+	if err := json.Unmarshal(response.Body(), &res); err != nil {
 		return &[]string{}
 	}
 	var telegraph []string
-	document.Find("div.telegraph-content-box").Each(func(i int, selection *goquery.Selection) {
-		//logger.SugaredLogger.Info(selection.Text())
-		telegraph = append(telegraph, ReplaceSensitiveWords(selection.Text()))
-	})
+	if v, _ := convertor.ToInt(res["errno"]); v == 0 {
+		if res["data"] == nil {
+			return &[]string{}
+		}
+		dataMap, ok := res["data"].(map[string]any)
+		if !ok {
+			return &[]string{}
+		}
+		rollData, ok := dataMap["roll_data"].([]any)
+		if !ok {
+			return &[]string{}
+		}
+		for _, v := range rollData {
+			news, ok := v.(map[string]any)
+			if !ok {
+				continue
+			}
+			content, _ := news["content"].(string)
+			if content != "" {
+				telegraph = append(telegraph, ReplaceSensitiveWords(content))
+			}
+		}
+	}
 	return &telegraph
 }
 
 func GetTopNewsList(crawlTimeOut int64) *[]string {
 	url := "https://www.cls.cn"
-	response, err := resty.New().SetTimeout(time.Duration(crawlTimeOut)*time.Second).R().
+	response, err := SharedHTTPClient.SetTimeout(time.Duration(crawlTimeOut)*time.Second).R().
 		SetHeader("Referer", "https://www.cls.cn/").
 		SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36 Edg/117.0.2045.60").
 		Get(url)

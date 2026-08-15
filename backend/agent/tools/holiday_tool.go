@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"go-stock/backend/data"
 	"go-stock/backend/logger"
 	"sort"
 	"strings"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
-	"github.com/go-resty/resty/v2"
 	"github.com/tidwall/gjson"
 )
 
@@ -90,7 +90,7 @@ func GetHolidayTools() []tool.BaseTool {
 				date = time.Now().Format("2006-01-02")
 			}
 
-			client := resty.New()
+			client := data.SharedHTTPClient
 			apiURL := fmt.Sprintf("https://timor.tech/api/holiday/info/%s", date)
 
 			var result HolidayInfo
@@ -165,7 +165,7 @@ func GetHolidayTools() []tool.BaseTool {
 				year = time.Now().Format("2006")
 			}
 
-			client := resty.New()
+			client := data.SharedHTTPClient
 			apiURL := fmt.Sprintf("https://timor.tech/api/holiday/year/%s/", year)
 
 			var result HolidayYearInfo
@@ -258,7 +258,7 @@ func GetHolidayTools() []tool.BaseTool {
 				return "请提供要查询的日期列表", nil
 			}
 
-			client := resty.New()
+			client := data.SharedHTTPClient
 
 			type batchRow struct {
 				Date      string `md:"日期"`
@@ -364,7 +364,7 @@ func GetHolidayTools() []tool.BaseTool {
 			weekday := parsedDate.Weekday()
 			isWeekend := weekday == time.Saturday || weekday == time.Sunday
 
-			client := resty.New()
+			client := data.SharedHTTPClient
 			apiURL := fmt.Sprintf("https://timor.tech/api/holiday/info/%s", date)
 
 			var result HolidayInfo
@@ -451,7 +451,7 @@ func GetHolidayTools() []tool.BaseTool {
 				}
 			}
 
-			client := resty.New()
+			client := data.SharedHTTPClient
 			var nextTradingDay *time.Time
 
 			for i := 1; i <= days; i++ {

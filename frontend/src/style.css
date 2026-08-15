@@ -24,3 +24,7 @@ body {
     height: 100vh;
     text-align: center;
 }
+
+.md-editor-preview {
+    padding: 0 8px !important;
+}

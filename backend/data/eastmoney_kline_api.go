@@ -207,7 +207,7 @@ type CallAuctionData struct {
 
 // NewEastMoneyKLineApi 创建东方财富 K 线 API 实例
 func NewEastMoneyKLineApi(config *SettingConfig) *EastMoneyKLineApi {
-	client := resty.New()
+	client := SharedHTTPClient
 
 	//// 配置强制 IPv4 优先的 Transport，解决 IPv6 连接问题
 	//dialer := &net.Dialer{
@@ -409,6 +409,9 @@ func (receiver *EastMoneyKLineApi) convertStockCode(stockCode string) string {
 			case "HK":
 				return "128." + code
 			case "BK":
+				return "90." + code
+			case "CSI":
+				// 中证指数（如 930599 高端装备制造）东财 secid 前缀为 90.
 				return "90." + code
 
 			default:

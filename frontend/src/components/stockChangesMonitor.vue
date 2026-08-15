@@ -105,7 +105,7 @@ const columnsRef = ref([
   {
     title: '日期',
     key: 'changeDate',
-    width: 100,
+    width: 120,
     render(row) {
       const date = row.changeDate || row.ChangeDate
       const time = row.changeTime || row.ChangeTime || row.time
@@ -118,7 +118,7 @@ const columnsRef = ref([
   {
     title: '代码',
     key: 'code',
-    width: 100,
+    width: 80,
     render(row) {
       const code = row.stockCode || row.StockCode || row.code
       return h(NText, {type: 'info', style: 'cursor: pointer', onClick: () => copyCode(code)}, {default: () => code})
@@ -135,7 +135,7 @@ const columnsRef = ref([
   {
     title: '异动类型',
     key: 'typeName',
-    width: 120,
+    width: 90,
     render(row) {
       const typeName = row.typeName || row.TypeName
       const bullishSet = new Set(['火箭发射', '快速反弹', '大笔买入', '封涨停板', '打开跌停板', '有大买盘', '竞价上涨', '高开5日线', '向上缺口', '60日新高', '60日大幅上涨', '打开涨停板'])
@@ -153,7 +153,7 @@ const columnsRef = ref([
   {
     title: '价格',
     key: 'price',
-    width: 80,
+    width: 70,
     render(row) {
       const price = row.price || row.Price
       if (price > 0) {
@@ -165,7 +165,7 @@ const columnsRef = ref([
   {
     title: '涨跌幅(%)',
     key: 'changeRate',
-    width: 100,
+    width: 85,
     render(row) {
       const changeRate = row.changeRate || row.ChangeRate
       if (changeRate !== 0) {
@@ -179,7 +179,7 @@ const columnsRef = ref([
   {
     title: '成交量',
     key: 'volume',
-    width: 100,
+    width: 80,
     render(row) {
       const volume = row.volume || row.Volume
       if (volume > 0) {
@@ -203,7 +203,7 @@ const columnsRef = ref([
   {
     title: '行业',
     key: 'industry',
-    width: 100,
+    width: 80,
     ellipsis: {
       tooltip: true
     },
@@ -214,12 +214,10 @@ const columnsRef = ref([
   {
     title: '概念',
     key: 'concept',
-    width: 150,
-    ellipsis: {
-      tooltip: true
-    },
+    minWidth: 200,
     render(row) {
-      return row.concept || row.Concept || '-'
+      const text = row.concept || row.Concept || '-'
+      return h('div', {style: 'white-space: normal; line-height: 1.4;'}, text)
     }
   },
 ])

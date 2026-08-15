@@ -3,38 +3,39 @@ import {
   EventsEmit,
   EventsOff,
   EventsOn,
-  Quit,
+  Quit,Hide ,
   WindowFullscreen,
-  WindowHide,
   WindowUnfullscreen,
   WindowSetTitle
 } from '../wailsjs/runtime'
-import {h, onBeforeMount, onBeforeUnmount, onMounted, ref} from "vue";
-import {RouterLink, useRouter} from 'vue-router'
-import {createDiscreteApi,darkTheme,lightTheme , NIcon, NText,NButton,dateZhCN,zhCN} from 'naive-ui'
+import {h, onBeforeMount, onBeforeUnmount, onMounted, ref, watch} from "vue";
+import {RouterLink, useRoute, useRouter} from 'vue-router'
+import {createDiscreteApi,darkTheme,lightTheme , NIcon, NText,NButton,NProgress,dateZhCN,zhCN} from 'naive-ui'
 import {
   AlarmOutline,
   AnalyticsOutline,
-  BarChartSharp, Bonfire, BonfireOutline, DiamondOutline, EaselSharp,
+  BarChartSharp, Bonfire, BonfireOutline, BookOutline, CalendarOutline, DiamondOutline, EaselSharp,
   ExpandOutline, Flag,
-  Flame, FlameSharp, FlaskOutline, InformationOutline,
+  Flame, FlameSharp, FlaskOutline, GlobeOutline, HomeOutline, InformationOutline,
   LogoGithub,
+  ChatbubblesOutline,
   NewspaperOutline,
   NewspaperSharp, Notifications,
   PowerOutline, Pulse,
   ReorderTwoOutline,
   SettingsOutline, ServerOutline, Skull, SkullOutline, SkullSharp,
-  SparklesOutline, FlashOutline,
+  SparklesOutline, FlashOutline, Star,
   StarOutline,
-  Wallet, WarningOutline, TimeOutline,
+  StatsChartOutline,
+  Wallet, WarningOutline, TimeOutline, SearchOutline, BookmarkOutline,
 } from '@vicons/ionicons5'
-import {AnalyzeSentiment, GetConfig, GetGroupList,GetVersionInfo} from "../wailsjs/go/main/App";
+import {AnalyzeSentiment, GetConfig, GetEffectiveSponsorVip, GetGroupList, GetVersionInfo, IsTradingTime, IsHKTradingTime, IsUSTradingTime} from "../wailsjs/go/main/App";
 import FloatingAiAssistant from "./components/FloatingAiAssistant.vue";
 import FloatingAgentAssistant from "./components/FloatingAgentAssistant.vue";
 import {Dragon, Fire, FirefoxBrowser, Gripfire, Robot} from "@vicons/fa";
 import {Prompt, ReportAnalytics, ReportMoney, ReportSearch, TrendingUp} from "@vicons/tabler";
 import {LocalFireDepartmentRound} from "@vicons/material";
-import {AppsList20Regular, BoxSearch20Regular, CommentNote20Filled} from "@vicons/fluent";
+import {AppsList20Regular, BoxSearch20Regular,SlideHide24Filled, CommentNote20Filled} from "@vicons/fluent";
 import {FireFilled, MoneyCollectOutlined, NotificationFilled, StockOutlined} from "@vicons/antd";
 
 
@@ -47,16 +48,167 @@ const enableNews = ref(false)
 const contentStyle = ref("")
 const enableFund = ref(false)
 const enableAgent = ref(false)
-const enableDarkTheme = ref(null)
+const enableDarkTheme = ref(darkTheme)
 const content = ref('未经授权,禁止商业目的!\n\n数据来源于网络,仅供参考;投资有风险,入市需谨慎')
 const isFullscreen = ref(false)
-const activeKey = ref('stock')
+const activeKey = ref('home')
+const route = useRoute()
+// 路由变化时同步菜单高亮（如重定向、前进/后退）
+watch(() => route.name, (name) => {
+  if (name && typeof name === 'string') {
+    activeKey.value = name
+  }
+})
 const containerRef = ref({})
 const realtimeProfit = ref(0)
 const telegraph = ref([])
 const groupList = ref([])
 const officialStatement= ref("")
+const marketStatus = ref('')
+let marketStatusTimer = null
+
+const downloadState = ref({
+  active: false, percentage: 0, speed: 0, avgSpeed: 0,
+  downloaded: 0, total: 0, version: '', proxy: '',
+  proxySpeed: 0, message: '', retrying: false,
+})
+let downloadNotification = null
+
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let val = bytes, i = 0
+  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++ }
+  return val.toFixed(2) + ' ' + units[i]
+}
+function formatSpeed(bps) {
+  if (!bps || bps <= 0) return '0 B/s'
+  return formatBytes(bps) + '/s'
+}
+function renderDownloadContent() {
+  const children = []
+  if (downloadState.value.message) {
+    children.push(h('div', {
+      style: { 'margin-bottom': '8px', 'color': '#999', 'font-size': '12px', 'white-space': 'pre-wrap', 'max-height': '120px', 'overflow': 'hidden' }
+    }, { default: () => downloadState.value.message }))
+  }
+  children.push(h(NProgress, {
+    type: 'line',
+    status: downloadState.value.retrying ? 'warning' : 'success',
+    percentage: Math.round(downloadState.value.percentage),
+    showIndicator: false,
+    height: 8,
+    borderRadius: 4,
+  }))
+  const detail = downloadState.value.retrying
+    ? '正在尝试其他下载源...'
+    : `${formatBytes(downloadState.value.downloaded)} / ${formatBytes(downloadState.value.total)} · ${formatSpeed(downloadState.value.speed)}`
+  children.push(h('div', {
+    style: { 'margin-top': '6px', 'font-size': '12px', 'color': '#888' }
+  }, { default: () => detail }))
+  if (downloadState.value.proxy) {
+    children.push(h('div', {
+      style: { 'margin-top': '2px', 'font-size': '11px', 'color': '#aaa' }
+    }, { default: () => `下载源: ${downloadState.value.proxy}` }))
+  }
+  return h('div', { style: { 'text-align': 'left', 'font-size': '14px', 'min-width': '280px' } }, { default: () => children })
+}
+
+const investmentMottos = [
+  "投资有风险，入市需谨慎",
+  "别人贪婪我恐惧，别人恐惧我贪婪",
+  "股市有风险，投资需谨慎",
+  "不要把所有鸡蛋放在一个篮子里",
+  "时间是优秀企业的朋友",
+  "买股票就是买公司",
+  "市场短期是投票机，长期是称重机",
+  "保住本金是投资的第一要务",
+  "在别人恐慌时贪婪，在别人贪婪时恐慌",
+  "风险来自于你不知道自己在做什么",
+  "价格是你付出的，价值是你得到的",
+  "投资最重要的品质是耐心",
+  "机会总是留给有准备的人",
+  "知行合一，方能致远",
+  "顺势而为，逆势而思",
+  "投资是一场马拉松，不是百米冲刺",
+  "独立思考是投资成功的关键",
+  "市场永远在波动，但价值终将回归",
+  "控制风险比追求收益更重要",
+  "学习是最好的投资",
+]
+const currentMotto = ref(investmentMottos[Math.floor(Math.random() * investmentMottos.length)])
+
+function refreshMotto() {
+  currentMotto.value = investmentMottos[Math.floor(Math.random() * investmentMottos.length)]
+}
+
+function updateMarketStatus() {
+  Promise.all([
+    IsTradingTime().catch(() => false),
+    IsHKTradingTime().catch(() => false),
+    IsUSTradingTime().catch(() => false)
+  ]).then(([cn, hk, us]) => {
+    const parts = []
+    parts.push(cn ? 'A股交易中' : 'A股休市')
+    parts.push(hk ? '港股交易中' : '港股休市')
+    parts.push(us ? '美股交易中' : '美股休市')
+    marketStatus.value = parts.join(' | ')
+    WindowSetTitle("go-stock " + marketStatus.value + " " + officialStatement.value + "  「" + currentMotto.value + "」  [数据来源于网络，仅供参考；投资有风险，入市需谨慎]")
+  })
+}
+
+/** 用于功能权限：仅在赞助有效期内为解密等级，否则为 0（与 EffectiveSponsorVipLevel 一致） */
+const vipLevel = ref(0)
+let discreteMessage = null
+function getDiscreteMessage() {
+  if (!discreteMessage) {
+    discreteMessage = createDiscreteApi(['message'], {
+      configProviderProps: {
+        theme: enableDarkTheme.value ? darkTheme : lightTheme,
+      },
+    })
+  }
+  return discreteMessage.message
+}
+async function refreshEffectiveVip() {
+  try {
+    const r = await GetEffectiveSponsorVip()
+    const active = !!r?.active
+    const lvl = Number(r?.vipLevel ?? 0)
+    vipLevel.value = active && !Number.isNaN(lvl) ? lvl : 0
+  } catch (_) {
+    vipLevel.value = 0
+  }
+}
+async function handleKlineAnalysisClick() {
+  await refreshEffectiveVip()
+  if (vipLevel.value < 2) {
+    getDiscreteMessage().warning('K线分析功能需要 VIP2 及以上赞助用户才能使用，请升级后体验')
+    return
+  }
+  activeKey.value = 'klineAnalysis'
+  router.push({ name: 'klineAnalysis' })
+}
+
 const menuOptions = ref([
+  {
+    label: () =>
+        h(
+            RouterLink,
+            {
+              to: {
+                name: 'home',
+                params: {},
+              },
+              onClick: () => {
+                activeKey.value = 'home'
+              },
+            },
+            {default: () => '首页',}
+        ),
+    key: 'home',
+    icon: renderIcon(HomeOutline),
+  },
   {
     label: () =>
         h(
@@ -82,29 +234,19 @@ const menuOptions = ref([
       {
         label: () =>
             h(
-                'a',
+                RouterLink,
                 {
-                  href: '#',
-                  type: 'info',
-                  onClick: () => {
-                    activeKey.value = 'stock'
-                    //console.log("push",item)
-                    router.push({
-                      name: 'stock',
-                      query: {
-                        groupName: '全部',
-                        groupId: 0,
-                      },
-                    })
-                    EventsEmit("changeTab", {ID: 0, name: '全部'})
-                  },
                   to: {
                     name: 'stock',
                     query: {
                       groupName: '全部',
                       groupId: 0,
                     },
-                  }
+                  },
+                  onClick: () => {
+                    activeKey.value = 'stock'
+                    EventsEmit("changeTab", {ID: 0, name: '全部'})
+                  },
                 },
                 {default: () => '全部',}
             ),
@@ -251,6 +393,50 @@ const menuOptions = ref([
                   to: {
                     name: 'market',
                     query: {
+                      name: "板块资金流向",
+                    }
+                  },
+                  onClick: () => {
+                    activeKey.value = 'market'
+                    EventsEmit("changeMarketTab", {ID: 0, name: '板块资金流向'})
+                  },
+                },
+                {default: () => '板块资金流向',}
+            ),
+        key: 'market5_1',
+        icon: renderIcon(ReportMoney),
+      },
+      {
+        label: () =>
+            h(
+                RouterLink,
+                {
+                  href: '#',
+                  to: {
+                    name: 'market',
+                    query: {
+                      name: "概念资金流向",
+                    }
+                  },
+                  onClick: () => {
+                    activeKey.value = 'market'
+                    EventsEmit("changeMarketTab", {ID: 0, name: '概念资金流向'})
+                  },
+                },
+                {default: () => '概念资金流向',}
+            ),
+        key: 'market5_2',
+        icon: renderIcon(TrendingUp),
+      },
+      {
+        label: () =>
+            h(
+                RouterLink,
+                {
+                  href: '#',
+                  to: {
+                    name: 'market',
+                    query: {
                       name: "龙虎榜",
                     }
                   },
@@ -361,28 +547,6 @@ const menuOptions = ref([
                   to: {
                     name: 'market',
                     query: {
-                      name: "指标选股",
-                    }
-                  },
-                  onClick: () => {
-                    activeKey.value = 'market'
-                    EventsEmit("changeMarketTab", {ID: 0, name: '指标选股'})
-                  },
-                },
-                {default: () => '指标选股',}
-            ),
-        key: 'market11',
-        icon: renderIcon(BoxSearch20Regular),
-      },
-      {
-        label: () =>
-            h(
-                RouterLink,
-                {
-                  href: '#',
-                  to: {
-                    name: 'market',
-                    query: {
                       name: "名站优选",
                     }
                   },
@@ -393,10 +557,45 @@ const menuOptions = ref([
                 },
                 {default: () => '名站优选',}
             ),
-        key: 'market12',
+        key: 'market11',
         icon: renderIcon(FirefoxBrowser),
       },
+      {
+        label: () =>
+            h(
+                RouterLink,
+                {
+                  href: '#',
+                  to: {
+                    name: 'market',
+                    query: {
+                      name: "融资融券",
+                    }
+                  },
+                  onClick: () => {
+                    activeKey.value = 'market'
+                    EventsEmit("changeMarketTab", {ID: 0, name: '融资融券'})
+                  },
+                },
+                {default: () => '融资融券',}
+            ),
+        key: 'market12',
+        icon: renderIcon(Wallet),
+      },
     ]
+  },
+  {
+    label: () =>
+        h(
+            'div',
+            {
+              style: 'cursor: pointer; width: 100%;',
+              onClick: () => { handleKlineAnalysisClick() },
+            },
+            {default: () => 'K线分析'}
+        ),
+    key: 'klineAnalysis',
+    icon: renderIcon(StatsChartOutline),
   },
   {
     label: () =>
@@ -420,10 +619,36 @@ const menuOptions = ref([
     icon: renderIcon(SparklesOutline),
     children: [
       {
-        label: () => h(NText, {type: realtimeProfit.value > 0 ? 'error' : 'success'}, {default: () => '功能完善中！'}),
-        key: 'realtimeProfit',
-        show: realtimeProfit.value,
-        icon: renderIcon(AlarmOutline),
+        label: () =>
+            h(
+                RouterLink,
+                {
+                  to: {name: 'fund', query: {name: '基金自选'}},
+                  onClick: () => {
+                    activeKey.value = 'fund'
+                    EventsEmit("changeFundTab", {name: '基金自选'})
+                  },
+                },
+                {default: () => '基金自选'}
+            ),
+        key: 'fundFollow',
+        icon: renderIcon(StarOutline),
+      },
+      {
+        label: () =>
+            h(
+                RouterLink,
+                {
+                  to: {name: 'fund', query: {name: '基金排行'}},
+                  onClick: () => {
+                    activeKey.value = 'fund'
+                    EventsEmit("changeFundTab", {name: '基金排行'})
+                  },
+                },
+                {default: () => '基金排行'}
+            ),
+        key: 'fundRanking',
+        icon: renderIcon(TrendingUp),
       },
     ]
   },
@@ -515,7 +740,7 @@ const menuOptions = ref([
                   {default: () => '股票推荐记录'}
               ),
           key: 'research2',
-          icon: renderIcon(DiamondOutline),
+          icon: renderIcon(Star),
         },
         {
           label: () =>
@@ -548,6 +773,29 @@ const menuOptions = ref([
                     to: {
                       name: 'research',
                       query: {
+                        name:"涨停梯队",
+                      },
+                    },
+                    onClick: () => {
+                      activeKey.value = 'research'
+                      setTimeout(() => {
+                        EventsEmit("changeResearchTab", {ID: 9, name: '涨停梯队'})
+                      }, 100)
+                    },
+                  },
+                  {default: () => '涨停梯队'}
+              ),
+          key: 'uplimitLadder',
+          icon: renderIcon(LocalFireDepartmentRound),
+        },
+        {
+          label: () =>
+              h(
+                  RouterLink,
+                  {
+                    to: {
+                      name: 'research',
+                      query: {
                         name:"提示词模板",
                       },
                     },
@@ -571,20 +819,89 @@ const menuOptions = ref([
                     to: {
                       name: 'research',
                       query: {
-                        name:"股票信息筛选",
+                        name:"提示词广场",
                       },
                     },
                     onClick: () => {
                       activeKey.value = 'research'
                       setTimeout(() => {
-                        EventsEmit("changeResearchTab", {ID: 3, name: '股票信息筛选'})
+                        EventsEmit("changeResearchTab", {ID: 10, name: '提示词广场'})
                       }, 100)
                     },
                   },
-                  {default: () => '股票信息筛选'}
+                  {default: () => '提示词广场'}
+              ),
+          key: 'promptPlaza',
+          icon: renderIcon(GlobeOutline),
+        },
+        {
+          label: () =>
+              h(
+                  RouterLink,
+                  {
+                    to: {
+                      name: 'research',
+                      query: {
+                        name:"问答广场",
+                      },
+                    },
+                    onClick: () => {
+                      activeKey.value = 'research'
+                      setTimeout(() => {
+                        EventsEmit("changeResearchTab", {ID: 11, name: '问答广场'})
+                      }, 100)
+                    },
+                  },
+                  {default: () => '问答广场'}
+              ),
+          key: 'promptQa',
+          icon: renderIcon(ChatbubblesOutline),
+        },
+        {
+          label: () =>
+              h(
+                  RouterLink,
+                  {
+                    to: {
+                      name: 'research',
+                      query: {
+                        name:"形态选股",
+                      },
+                    },
+                    onClick: () => {
+                      activeKey.value = 'research'
+                      setTimeout(() => {
+                        EventsEmit("changeResearchTab", {ID: 3, name: '形态选股'})
+                      }, 100)
+                    },
+                  },
+                  {default: () => '形态选股'}
               ),
           key: 'research4',
-          icon: renderIcon(AppsList20Regular),
+          icon: renderIcon(SearchOutline),
+        },
+        {
+          label: () =>
+              h(
+                  RouterLink,
+                  {
+                    to: {
+                      name: 'research',
+                      query: {
+                        name:"指标选股",
+                      },
+                    },
+                    onClick: () => {
+                      activeKey.value = 'research'
+                      setTimeout(() => {
+                        EventsEmit("changeResearchTab", {ID: 0, name: '指标选股'})
+                      }, 100)
+                    },
+                  },
+                  {default: () => '指标选股'}
+              ),
+          key: 'research_select_stock',
+          icon: renderIcon(BoxSearch20Regular),
         },
         {
           label: () =>
@@ -639,6 +956,29 @@ const menuOptions = ref([
                   {
                     to: {
                       name: 'research',
+                      query: {
+                        name:"每日操作计划",
+                      },
+                    },
+                    onClick: () => {
+                      activeKey.value = 'research'
+                      setTimeout(() => {
+                        EventsEmit("changeResearchTab", {ID: 7, name: '每日操作计划'})
+                      }, 100)
+                    },
+                  },
+                  {default: () => '每日操作计划'}
+              ),
+          key: 'dailyOperationPlan',
+          icon: renderIcon(CalendarOutline),
+        },
+        {
+          label: () =>
+              h(
+                  RouterLink,
+                  {
+                    to: {
+                      name: 'research',
                     },
                     onClick: () => {
                       activeKey.value = 'research'
@@ -671,29 +1011,95 @@ const menuOptions = ref([
               ),
           key: 'skills',
           icon: renderIcon(FlashOutline),
-          show: false,
+        },
+        {
+          label: () =>
+              h(
+                  RouterLink,
+                  {
+                    to: {
+                      name: 'research',
+                    },
+                    onClick: () => {
+                      activeKey.value = 'research'
+                      setTimeout(() => {
+                        EventsEmit("changeResearchTab", {ID: 9, name: '知识库管理'})
+                      }, 100)
+                    },
+                  },
+                  {default: () => '知识库管理'}
+              ),
+          key: 'knowledgeBase',
+          icon: renderIcon(BookOutline),
         },
       ],
     },
   {
-    label: () =>
-        h(
-            RouterLink,
-            {
-              to: {
-                name: 'settings',
-                query: {
-                  name:"设置",
-                },
-                onClick: () => {
-                  activeKey.value = 'settings'
-                },
-              }
-            },
-            {default: () => '设置'}
-        ),
+    label: '设置',
     key: 'settings',
     icon: renderIcon(SettingsOutline),
+    children: [
+      {
+        label: () =>
+            h(
+                RouterLink,
+                {
+                  to: {
+                    name: 'settings',
+                    query: {
+                      name:"设置",
+                    },
+                  },
+                  onClick: () => {
+                    activeKey.value = 'settings'
+                  },
+                },
+                {default: () => '基础设置'}
+            ),
+        key: 'settings',
+        icon: renderIcon(SettingsOutline),
+      },
+      {
+        label: () =>
+            h(
+                RouterLink,
+                {
+                  to: {
+                    name: 'aiConfigs',
+                    query: {
+                      name:"AI模型服务",
+                    },
+                  },
+                  onClick: () => {
+                    activeKey.value = 'aiConfigs'
+                  },
+                },
+                {default: () => 'AI模型服务'}
+            ),
+        key: 'aiConfigs',
+        icon: renderIcon(SparklesOutline),
+      },
+      {
+        label: () =>
+            h(
+                RouterLink,
+                {
+                  to: {
+                    name: 'userProfile',
+                    query: {
+                      name:"我的画像",
+                    },
+                  },
+                  onClick: () => {
+                    activeKey.value = 'userProfile'
+                  },
+                },
+                {default: () => '我的画像'}
+            ),
+        key: 'userProfile',
+        icon: renderIcon(BookmarkOutline),
+      },
+    ],
   },
   {
     label: () =>
@@ -714,6 +1120,7 @@ const menuOptions = ref([
         ),
     key: 'about',
     icon: renderIcon(LogoGithub),
+    show: true,
   },
   {
     show:false,
@@ -724,15 +1131,6 @@ const menuOptions = ref([
     }, {default: () => isFullscreen.value ? '取消全屏' : '全屏'}),
     key: 'full',
     icon: renderIcon(ExpandOutline),
-  },
-  {
-    label: () => h("a", {
-      href: '#',
-      onClick: WindowHide,
-      title: '隐藏到托盘区 Ctrl+Z',
-    }, {default: () => '隐藏到托盘区'}),
-    key: 'hide',
-    icon: renderIcon(ReorderTwoOutline),
   },
   // {
   //   label: ()=> h("a", {
@@ -746,12 +1144,60 @@ const menuOptions = ref([
   {
     label: () => h("a", {
       href: '#',
+      onClick: Hide,
+    }, {default: () => '隐藏至托盘区'}),
+    key: 'hide',
+    icon: renderIcon(SlideHide24Filled),
+  },
+  {
+    label: () => h("a", {
+      href: '#',
       onClick: Quit,
     }, {default: () => '退出程序'}),
     key: 'exit',
     icon: renderIcon(PowerOutline),
   },
 ])
+
+// 重建"股票自选"菜单的分组子项（保留"全部"，用最新分组列表替换其余子项）
+function refreshStockGroupMenu() {
+  GetGroupList().then(result => {
+    groupList.value = result
+    menuOptions.value.forEach((item) => {
+      if (item.key === 'stock') {
+        const allItem = item.children.find(c => c.key === 0)
+        item.children = allItem ? [allItem] : []
+        item.children.push(...groupList.value.map(g => {
+          return {
+            label: () =>
+                h(
+                    RouterLink,
+                    {
+                      to: {
+                        name: 'stock',
+                        query: {
+                          groupName: g.name,
+                          groupId: g.ID,
+                        },
+                      },
+                      onClick: () => {
+                        activeKey.value = 'stock'
+                        setTimeout(() => {
+                          EventsEmit("changeTab", g)
+                        }, 100)
+                      },
+                    },
+                    {default: () => g.name,}
+                ),
+            key: g.ID,
+          }
+        }))
+      }
+    })
+  }).catch(err => {
+    console.error("refreshStockGroupMenu error:", err)
+  })
+}
 
 function renderIcon(icon) {
   return () => h(NIcon, null, {default: () => h(icon)})
@@ -805,11 +1251,28 @@ EventsOn("loadingMsg", (data) => {
   }
 })
 
+setTimeout(() => {
+  if (loading.value) {
+    loading.value = false
+    loadingMsg.value = "加载完成..."
+    EventsEmit("loadingDone", "app")
+  }
+}, 8000)
+
 onBeforeUnmount(() => {
+  if (marketStatusTimer) {
+    clearInterval(marketStatusTimer)
+    marketStatusTimer = null
+  }
   EventsOff("realtime_profit")
   EventsOff("loadingMsg")
   EventsOff("telegraph")
   EventsOff("newsPush")
+  EventsOff("groupListChanged")
+  EventsOff("updateDownloadStart")
+  EventsOff("downloadProgress")
+  EventsOff("updateDownloadComplete")
+  EventsOff("updateDownloadFailed")
 })
 
 window.onerror = function (msg, source, lineno, colno, error) {
@@ -829,56 +1292,21 @@ onBeforeMount(() => {
   GetVersionInfo().then(result => {
     if(result.officialStatement){
       content.value = result.officialStatement+"\n\n"+content.value
-      officialStatement.value = result.officialStatement
     }
+    officialStatement.value = result.officialStatement || ""
+    updateMarketStatus()
+  }).catch(err => {
+    console.error("GetVersionInfo error:", err)
   })
 
-  GetGroupList().then(result => {
-    groupList.value = result
-    menuOptions.value.map((item) => {
-      //console.log(item)
-      if (item.key === 'stock') {
-        item.children.push(...groupList.value.map(item => {
-          return {
-            label: () =>
-                h(
-                    'a',
-                    {
-                      href: '#',
-                      type: 'info',
-                      onClick: () => {
-                        //console.log("push",item)
-                        router.push({
-                          name: 'stock',
-                          query: {
-                            groupName: item.name,
-                            groupId: item.ID,
-                          },
-                        })
-                        setTimeout(() => {
-                          EventsEmit("changeTab", item)
-                        }, 100)
-                      },
-                      to: {
-                        name: 'stock',
-                        query: {
-                          groupName: item.name,
-                          groupId: item.ID,
-                        },
-                      }
-                    },
-                    {default: () => item.name,}
-                ),
-            key: item.ID,
-          }
-        }))
-      }
-    })
+  refreshStockGroupMenu()
+  // 监听分组变化（新增/改名/删除），实时刷新菜单栏
+  EventsOn("groupListChanged", () => {
+    refreshStockGroupMenu()
   })
 
 
   GetConfig().then((res) => {
-    //console.log(res)
     enableFund.value = res.enableFund
     enableAgent.value = res.enableAgent
 
@@ -896,11 +1324,17 @@ onBeforeMount(() => {
     } else {
       enableDarkTheme.value = null
     }
+  }).catch(err => {
+    console.error("GetConfig error:", err)
   })
 })
 
 onMounted(() => {
-  WindowSetTitle("go-stock：AI赋能股票分析✨ "+officialStatement.value+"  未经授权,禁止商业目的！ [数据来源于网络,仅供参考;投资有风险,入市需谨慎]")
+  updateMarketStatus()
+  marketStatusTimer = setInterval(() => {
+    refreshMotto()
+    updateMarketStatus()
+  }, 60000)
   contentStyle.value = "max-height: calc(92vh);overflow: hidden"
   GetConfig().then((res) => {
     if (res.enableNews) {
@@ -944,6 +1378,82 @@ onMounted(() => {
         })
       }
     })
+
+    EventsOn("updateDownloadStart", (data) => {
+      downloadState.value = {
+        active: true, percentage: 0, speed: 0, avgSpeed: 0,
+        downloaded: 0, total: data.total || 0, version: data.version || '',
+        proxy: data.proxy || '(直连)', proxySpeed: data.proxySpeed || 0,
+        message: data.message || '', retrying: false,
+      }
+      if (downloadNotification) { downloadNotification.destroy(); downloadNotification = null }
+      downloadNotification = notification.create({
+        title: () => '正在下载新版本 ' + downloadState.value.version,
+        content: renderDownloadContent,
+        meta: () => h(NText, { type: 'warning' }, { default: () => 'go-stock' }),
+        duration: 0,
+      })
+    })
+
+    EventsOn("downloadProgress", (data) => {
+      if (data.status === 'retrying') {
+        downloadState.value.retrying = true
+        downloadState.value.percentage = 0
+        downloadState.value.downloaded = 0
+        downloadState.value.speed = 0
+        return
+      }
+      downloadState.value.retrying = false
+      downloadState.value.percentage = data.percentage || 0
+      downloadState.value.speed = data.speed || 0
+      downloadState.value.avgSpeed = data.avgSpeed || 0
+      downloadState.value.downloaded = data.downloaded || 0
+      downloadState.value.total = data.total || 0
+      if (data.proxy) {
+        downloadState.value.proxy = data.proxy
+      }
+    })
+
+    EventsOn("updateDownloadComplete", (data) => {
+      downloadState.value.active = false
+      downloadState.value.percentage = 100
+      if (downloadNotification) { downloadNotification.destroy(); downloadNotification = null }
+      notification.create({
+        title: '版本下载完成',
+        content: () => h('div', { style: { 'text-align': 'left', 'font-size': '14px', 'color': '#52c41a' } },
+          { default: () => '新版本 ' + data.version + ' 下载完成，正在应用更新，下次重启生效...' }),
+        meta: () => h(NText, { type: 'warning' }, { default: () => 'go-stock' }),
+        duration: 5000,
+      })
+    })
+
+    EventsOn("updateDownloadFailed", (data) => {
+      downloadState.value.active = false
+      if (downloadNotification) { downloadNotification.destroy(); downloadNotification = null }
+      const items = [
+        h('div', { style: { 'margin-bottom': '8px' } },
+          { default: () => '新版本 ' + data.version + ' 自动下载失败: ' + data.error })
+      ]
+      if (data.manualLinks) {
+        items.push(h('div', { style: { 'margin-bottom': '4px' } }, { default: () => '请手动下载后替换程序文件:' }))
+        items.push(h('div', {
+          style: { 'font-size': '12px', 'word-break': 'break-all', 'margin-bottom': '2px', 'color': '#549EC8' }
+        }, { default: () => '加速镜像: ' + data.manualLinks.mirror }))
+        items.push(h('div', {
+          style: { 'font-size': '12px', 'word-break': 'break-all', 'color': '#549EC8' }
+        }, { default: () => '原始地址: ' + data.manualLinks.original }))
+      }
+      notification.create({
+        title: '版本下载失败',
+        content: () => h('div', { style: { 'text-align': 'left', 'font-size': '14px', 'color': '#f67979' } },
+          { default: () => items }),
+        meta: () => h(NText, { type: 'warning' }, { default: () => 'go-stock' }),
+        duration: 0,
+      })
+    })
+
+  }).catch(err => {
+    console.error("GetConfig(onMounted) error:", err)
   })
 })
 </script>
@@ -992,6 +1502,7 @@ onMounted(() => {
                               v-model:value="activeKey"
                               mode="horizontal"
                               :options="menuOptions"
+                              :dropdown-props="{ menuProps: () => ({ style: 'max-height: 60vh; overflow-y: auto;' }) }"
                               responsive
                       />
                     </n-card>
@@ -1006,5 +1517,46 @@ onMounted(() => {
   </n-config-provider>
 </template>
 <style>
-
+/* 菜单/下拉弹出层滚动条样式（naive-ui 弹出层渲染到 body，需全局作用域） */
+.n-dropdown-menu,
+.n-dropdown-menu .n-vm-list,
+.n-base-select-menu,
+.n-base-select-menu .n-vm-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(128, 128, 128, 0.45) transparent;
+}
+.n-dropdown-menu::-webkit-scrollbar,
+.n-dropdown-menu .n-vm-list::-webkit-scrollbar,
+.n-dropdown-menu .n-scrollbar-container::-webkit-scrollbar,
+.n-base-select-menu::-webkit-scrollbar,
+.n-base-select-menu .n-vm-list::-webkit-scrollbar,
+.n-base-select-menu .n-scrollbar-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.n-dropdown-menu::-webkit-scrollbar-thumb,
+.n-dropdown-menu .n-vm-list::-webkit-scrollbar-thumb,
+.n-dropdown-menu .n-scrollbar-container::-webkit-scrollbar-thumb,
+.n-base-select-menu::-webkit-scrollbar-thumb,
+.n-base-select-menu .n-vm-list::-webkit-scrollbar-thumb,
+.n-base-select-menu .n-scrollbar-container::-webkit-scrollbar-thumb {
+  background-color: rgba(128, 128, 128, 0.45);
+  border-radius: 3px;
+}
+.n-dropdown-menu::-webkit-scrollbar-thumb:hover,
+.n-dropdown-menu .n-vm-list::-webkit-scrollbar-thumb:hover,
+.n-dropdown-menu .n-scrollbar-container::-webkit-scrollbar-thumb:hover,
+.n-base-select-menu::-webkit-scrollbar-thumb:hover,
+.n-base-select-menu .n-vm-list::-webkit-scrollbar-thumb:hover,
+.n-base-select-menu .n-scrollbar-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(128, 128, 128, 0.7);
+}
+.n-dropdown-menu::-webkit-scrollbar-track,
+.n-dropdown-menu .n-vm-list::-webkit-scrollbar-track,
+.n-dropdown-menu .n-scrollbar-container::-webkit-scrollbar-track,
+.n-base-select-menu::-webkit-scrollbar-track,
+.n-base-select-menu .n-vm-list::-webkit-scrollbar-track,
+.n-base-select-menu .n-scrollbar-container::-webkit-scrollbar-track {
+  background: transparent;
+}
 </style>

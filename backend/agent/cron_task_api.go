@@ -108,6 +108,12 @@ func (a *CronTaskApi) GetAll() []models.CronTask {
 	return tasks
 }
 
+func (a *CronTaskApi) ExistsByTaskType(taskType string) bool {
+	var count int64
+	db.Dao.Model(&models.CronTask{}).Where("task_type = ?", taskType).Count(&count)
+	return count > 0
+}
+
 func (a *CronTaskApi) EnableTask(id uint, enable bool) error {
 	return db.Dao.Model(&models.CronTask{}).Where("id = ?", id).Updates(map[string]any{
 		"enable": enable,
@@ -250,7 +256,9 @@ func (a *CronTaskApi) executeStockAnalysis(ctx context.Context, task *models.Cro
 	msgs := data.NewDeepSeekOpenAi(ctx, params.AiConfigId).NewChatStream(params.StockName, data.ConvertTushareCodeToStockCode(params.StockCode), prompt, &params.SysPromptId, tools, params.Thinking)
 	content := &strings.Builder{}
 	for msg := range msgs {
-		content.WriteString(msg["content"].(string))
+		if v, ok := msg["content"].(string); ok {
+			content.WriteString(v)
+		}
 	}
 	logger.SugaredLogger.Infof("content:%s", content.String())
 	data.NewDeepSeekOpenAi(ctx, params.AiConfigId).SaveAIResponseResult(params.StockCode, params.StockName, content.String(), "", prompt)

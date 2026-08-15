@@ -11,6 +11,7 @@
   <div v-else class="page">
         <div class="header">
           <div class="title">go-stock AI 助手（Web）</div>
+          <div class="motto">「{{ currentMotto }}」</div>
           <div class="toolbar">
             <NButton size="small" type="primary" class="new-chat-btn" @click="startNewChat">
               新会话
@@ -164,7 +165,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { MdPreview } from "md-editor-v3";
 import { NAvatar, NButton, NCard, NIcon, NInput, NScrollbar, NSelect, NSpin, NSwitch, useMessage } from "naive-ui";
 import html2canvas from "html2canvas";
@@ -198,6 +199,34 @@ const shareLoading = ref(false);
 const controller = ref<AbortController | null>(null);
 const saveImageLoading = ref<number | null>(null);
 
+const investmentMottos = [
+  "投资有风险，入市需谨慎",
+  "别人贪婪我恐惧，别人恐惧我贪婪",
+  "不要把所有鸡蛋放在一个篮子里",
+  "时间是优秀企业的朋友",
+  "买股票就是买公司",
+  "市场短期是投票机，长期是称重机",
+  "保住本金是投资的第一要务",
+  "在别人恐慌时贪婪，在别人贪婪时恐慌",
+  "风险来自于你不知道自己在做什么",
+  "价格是你付出的，价值是你得到的",
+  "投资最重要的品质是耐心",
+  "机会总是留给有准备的人",
+  "知行合一，方能致远",
+  "顺势而为，逆势而思",
+  "投资是一场马拉松，不是百米冲刺",
+  "独立思考是投资成功的关键",
+  "市场永远在波动，但价值终将回归",
+  "控制风险比追求收益更重要",
+  "学习是最好的投资",
+]
+const currentMotto = ref(investmentMottos[Math.floor(Math.random() * investmentMottos.length)])
+let mottoTimer: ReturnType<typeof setInterval> | null = null
+
+function refreshMotto() {
+  currentMotto.value = investmentMottos[Math.floor(Math.random() * investmentMottos.length)]
+}
+
 const vipGateLoading = ref(true);
 const vipGateOk = ref(false);
 const vipGateMessage = ref(
@@ -222,7 +251,7 @@ const userPromptId = ref<number | null>(null);
 const userPromptOptions = ref<SelectOption[]>([]);
 const userPromptTemplates = ref<PromptTemplate[]>([]);
 
-const thinking = ref(false);
+const thinking = ref(true);
 const memoryMode = ref(true);
 const memoryCount = ref(5);
 const memoryCountOptions: SelectOption[] = [
@@ -547,6 +576,14 @@ onMounted(async () => {
     message.error(String(e?.message ?? e));
     startNewChat();
   });
+  mottoTimer = setInterval(refreshMotto, 30000);
+});
+
+onBeforeUnmount(() => {
+  if (mottoTimer) {
+    clearInterval(mottoTimer);
+    mottoTimer = null;
+  }
 });
 </script>
 
@@ -603,6 +640,18 @@ onMounted(async () => {
 .title {
   font-weight: 700;
   font-size: 18px;
+  white-space: nowrap;
+}
+.motto {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+  transition: opacity 0.4s;
 }
 .toolbar {
   display: flex;
