@@ -41,7 +41,7 @@ require (
 	github.com/samber/lo v1.53.0
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.19.0
-	github.com/wailsapp/wails/v2 v2.11.0
+	github.com/wailsapp/wails/v2 v2.14.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 	golang.org/x/net v0.56.0
@@ -60,6 +60,7 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	git.sr.ht/~jackmordaunt/go-toast v1.1.2 // indirect
+	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 	github.com/andybalholm/cascadia v1.3.4 // indirect
 	github.com/anthropics/anthropic-sdk-go v1.56.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.42.0 // indirect
