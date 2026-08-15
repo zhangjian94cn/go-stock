@@ -43,7 +43,7 @@ require (
 	github.com/tidwall/gjson v1.19.0
 	github.com/wailsapp/wails/v2 v2.11.0
 	go.uber.org/zap v1.28.0
-	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
+	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297
 	golang.org/x/net v0.56.0
 	golang.org/x/sys v0.46.0
 	golang.org/x/text v0.40.0
