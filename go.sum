@@ -115,6 +115,8 @@ github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xW
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/bensema/gotdx v0.0.0-20260704141338-25c9fae16f89 h1:aYOvFS756vIicBfqQOLimQZ6hP/gv5PdkYDI41oRjUc=
 github.com/bensema/gotdx v0.0.0-20260704141338-25c9fae16f89/go.mod h1:sJBiXDKX4zHEkZGuNWrJdFniEukKvoCeYnv/BJWBN74=
+github.com/bensema/gotdx v0.0.0-20260814091632-c6958ea51ca5 h1:Gcv8Daf0P2mYwot4KPjyKUtkPfK8MaRzmX9uoYswEw4=
+github.com/bensema/gotdx v0.0.0-20260814091632-c6958ea51ca5/go.mod h1:uTq2S3hRFoE9inbNVbNgrocSF05Uj6eGo3Z3FJB0DVA=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
