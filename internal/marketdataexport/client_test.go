@@ -143,6 +143,38 @@ func TestV2ProfileParsesTrackingHistoryScaleAndFees(t *testing.T) {
 	}
 }
 
+func TestV2SinaFiveMinuteBarsAcceptSecondsAndUseProviderAmount(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`var_kline([{"day":"2026-08-19 09:35:00","open":"3.80","high":"3.91","low":"3.79","close":"3.90","volume":"10000","amount":"39000.50"},{"day":"2026-08-19 09:40:00","open":"3.90","high":"3.92","low":"3.88","close":"3.91","volume":"12000","amount":"46920.25"}])`))
+	}))
+	defer server.Close()
+	c := &Client{
+		HTTP: server.Client(),
+		Endpoints: Endpoints{
+			BarsSina:    server.URL,
+			Bars:        server.URL + "/eastmoney",
+			BarsTencent: server.URL + "/tencent",
+		},
+		Now: func() time.Time { return time.Date(2026, 8, 19, 2, 0, 0, 0, time.UTC) },
+	}
+	req := Request{Schema: RequestSchemaV2, RequestID: "sina-bars", AsOf: "2026-08-19T10:00:00+08:00", Timezone: "Asia/Shanghai", Symbols: []string{"510300.SH"}, Operations: []Operation{{Name: "bars", Timeframe: "5m", Limit: 2}}}
+	envelope := c.Execute(context.Background(), req)
+	if envelope.Status != "complete" || envelope.ProviderHealth[providerSina].Successes != 1 {
+		t.Fatalf("envelope=%+v", envelope)
+	}
+	var grouped map[string][]map[string]any
+	if err := json.Unmarshal(envelope.Results["bars/5m"], &grouped); err != nil {
+		t.Fatal(err)
+	}
+	bars := grouped["510300.SH"]
+	if len(bars) != 2 || bars[0]["amount_cny"] != 39000.50 || bars[0]["amount_quality"] != nil {
+		t.Fatalf("bars=%+v", bars)
+	}
+	if bars[0]["timestamp"] != "2026-08-19T01:35:00Z" {
+		t.Fatalf("timestamp=%v", bars[0]["timestamp"])
+	}
+}
+
 func TestV1EnvelopeRemainsV1WithoutV2ProviderHealth(t *testing.T) {
 	c := &Client{HTTP: http.DefaultClient, Endpoints: Endpoints{}, Now: func() time.Time { return time.Date(2026, 8, 19, 2, 0, 0, 0, time.UTC) }}
 	req := Request{Schema: RequestSchemaV1, RequestID: "v1", AsOf: "2026-08-19T10:00:00+08:00", Timezone: "Asia/Shanghai", Operations: []Operation{{Name: "trading_calendar", Start: "2026-08-19", End: "2026-08-19"}}}
