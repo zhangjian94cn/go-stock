@@ -284,6 +284,8 @@ func makeBarsV2(symbol, timeframe, providerName, provenanceName string, raw []ra
 		stampText := item.Timestamp
 		if timeframe == "1d" && len(stampText) == 10 {
 			stampText += " 15:00"
+		} else if len(stampText) == len("2006-01-02 15:04:05") {
+			layout = "2006-01-02 15:04:05"
 		}
 		stamp, err := time.ParseInLocation(layout, stampText, location)
 		if err != nil || seen[stampText] || (!previous.IsZero() && !stamp.After(previous)) {
@@ -342,7 +344,7 @@ func (c *Client) barsSina(ctx context.Context, req Request, op Operation, symbol
 		return nil, errors.New("Sina bars JSONP array missing")
 	}
 	var items []struct {
-		Day, Open, High, Low, Close, Volume string
+		Day, Open, High, Low, Close, Volume, Amount string
 	}
 	if err := json.Unmarshal([]byte(text[start:end+1]), &items); err != nil {
 		return nil, fmt.Errorf("decode Sina bars: %w", err)
@@ -357,7 +359,12 @@ func (c *Client) barsSina(ctx context.Context, req Request, op Operation, symbol
 		if e1 != nil || e2 != nil || e3 != nil || e4 != nil || e5 != nil {
 			return nil, fmt.Errorf("invalid Sina bar %q", item.Day)
 		}
-		raw = append(raw, rawBarV2{Timestamp: item.Day, Open: open, Close: closeValue, High: high, Low: low, Volume: volumeShares / 100, Amount: closeValue * volumeShares, Estimated: true})
+		amount, amountErr := strconv.ParseFloat(item.Amount, 64)
+		estimated := amountErr != nil || amount < 0
+		if estimated {
+			amount = closeValue * volumeShares
+		}
+		raw = append(raw, rawBarV2{Timestamp: item.Day, Open: open, Close: closeValue, High: high, Low: low, Volume: volumeShares / 100, Amount: amount, Estimated: estimated})
 	}
 	return makeBarsV2(symbol, op.Timeframe, providerSina, "go-stock:readonly-export-v2/bars/sina", raw, req)
 }
