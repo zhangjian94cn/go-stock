@@ -114,8 +114,11 @@ func (c *Client) Execute(ctx context.Context, req Request) Envelope {
 	observedAt := c.Now().UTC().Truncate(time.Second)
 	schema := EnvelopeSchemaV1
 	var tracker *providerHealthTracker
-	if req.Schema == RequestSchemaV2 {
+	if req.Schema == RequestSchemaV2 || req.Schema == RequestSchemaV3 {
 		schema = EnvelopeSchemaV2
+		if req.Schema == RequestSchemaV3 {
+			schema = EnvelopeSchemaV3
+		}
 		tracker = &providerHealthTracker{health: map[string]ProviderHealth{}}
 		ctx = context.WithValue(ctx, providerHealthKey{}, tracker)
 	}
@@ -128,21 +131,23 @@ func (c *Client) Execute(ctx context.Context, req Request) Envelope {
 		var errs []PartialError
 		switch op.Name {
 		case "quotes":
-			if req.Schema == RequestSchemaV2 {
+			if req.Schema != RequestSchemaV1 {
 				result, errs = c.fetchQuotesV2(ctx, req, observedAt)
 			} else {
 				result, errs = c.fetchQuotes(ctx, req, observedAt)
 			}
 		case "bars":
-			if req.Schema == RequestSchemaV2 {
+			if req.Schema != RequestSchemaV1 {
 				result, errs = c.fetchBarsV2(ctx, req, op, observedAt)
 			} else {
 				result, errs = c.fetchBars(ctx, req, op, observedAt)
 			}
+		case "bars_history":
+			result, errs = c.fetchBarsHistoryV3(ctx, req, op, observedAt)
 		case "etf_universe":
 			result, errs = c.fetchUniverse(ctx, op, observedAt)
 		case "etf_profile":
-			if req.Schema == RequestSchemaV2 {
+			if req.Schema != RequestSchemaV1 {
 				result, errs = c.fetchProfilesV2(ctx, req, observedAt)
 			} else {
 				result, errs = c.fetchProfiles(ctx, req, observedAt)

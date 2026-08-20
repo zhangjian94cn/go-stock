@@ -25,7 +25,7 @@ func TestCommandDoesNotWriteRuntimeFiles(t *testing.T) {
 	if err := os.Mkdir(runtimeDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, schema := range []string{RequestSchemaV1, RequestSchemaV2} {
+	for _, schema := range []string{RequestSchemaV1, RequestSchemaV2, RequestSchemaV3} {
 		request := fmt.Sprintf(`{"schema":%q,"request_id":"side-effect","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","symbols":[],"operations":[{"name":"trading_calendar","start":"2026-08-18","end":"2026-08-19"}]}`, schema)
 		command := exec.Command(binary)
 		command.Dir = runtimeDir
@@ -56,13 +56,61 @@ func TestCommandDoesNotWriteRuntimeFiles(t *testing.T) {
 
 func TestDecodeRequestRejectsUnknownSchemaAndOperation(t *testing.T) {
 	for _, body := range []string{
-		`{"schema":"MarketDataRequest/v3","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}]}`,
+		`{"schema":"MarketDataRequest/v4","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}]}`,
 		`{"schema":"MarketDataRequest/v1","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"write_database"}]}`,
 		`{"schema":"MarketDataRequest/v1","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}],"extra":true}`,
 	} {
 		if _, err := DecodeRequest(bytes.NewBufferString(body)); err == nil {
 			t.Fatalf("expected rejection for %s", body)
 		}
+	}
+}
+
+func TestV3HistoryRequiresRangeAndReturnsSingleProviderCoverage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/bars" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"rc":0,"data":{"klines":["2026-08-18 09:35,3.8,3.9,3.91,3.79,100,390000","2026-08-19 09:35,3.9,4.0,4.01,3.89,120,480000","2026-08-20 09:35,4.0,4.1,4.11,3.99,140,574000"]}}`))
+	}))
+	defer server.Close()
+	c := &Client{
+		HTTP: server.Client(),
+		Endpoints: Endpoints{
+			BarsSina:    server.URL + "/sina",
+			Bars:        server.URL + "/bars",
+			BarsTencent: server.URL + "/tencent",
+		},
+		Now: func() time.Time { return time.Date(2026, 8, 20, 2, 0, 0, 0, time.UTC) },
+	}
+	req := Request{
+		Schema:     RequestSchemaV3,
+		RequestID:  "history",
+		AsOf:       "2026-08-20T10:00:00+08:00",
+		Timezone:   "Asia/Shanghai",
+		Symbols:    []string{"510300.SH"},
+		Operations: []Operation{{Name: "bars_history", Timeframe: "5m", Start: "2026-08-18", End: "2026-08-19", Limit: 100}},
+	}
+	envelope := c.Execute(context.Background(), req)
+	if envelope.Schema != EnvelopeSchemaV3 || envelope.Status != "complete" {
+		t.Fatalf("envelope=%+v", envelope)
+	}
+	var grouped map[string]map[string]any
+	if err := json.Unmarshal(envelope.Results["bars_history/5m"], &grouped); err != nil {
+		t.Fatal(err)
+	}
+	page := grouped["510300.SH"]
+	records, _ := page["records"].([]any)
+	if len(records) != 2 || page["provider"] != providerEast || page["complete"] != true {
+		t.Fatalf("page=%+v", page)
+	}
+}
+
+func TestV3HistoryValidationFailsClosed(t *testing.T) {
+	bad := `{"schema":"MarketDataRequest/v3","request_id":"history","as_of":"2026-08-20T10:00:00+08:00","timezone":"Asia/Shanghai","symbols":["510300.SH"],"operations":[{"name":"bars_history","timeframe":"5m","limit":10001}]}`
+	if _, err := DecodeRequest(bytes.NewBufferString(bad)); err == nil {
+		t.Fatal("expected bars_history validation failure")
 	}
 }
 

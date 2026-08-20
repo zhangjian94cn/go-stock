@@ -13,8 +13,10 @@ import (
 const (
 	RequestSchemaV1  = "MarketDataRequest/v1"
 	RequestSchemaV2  = "MarketDataRequest/v2"
+	RequestSchemaV3  = "MarketDataRequest/v3"
 	EnvelopeSchemaV1 = "MarketDataEnvelope/v1"
 	EnvelopeSchemaV2 = "MarketDataEnvelope/v2"
+	EnvelopeSchemaV3 = "MarketDataEnvelope/v3"
 
 	// Backward-compatible aliases retained for existing v1 callers and tests.
 	RequestSchema  = RequestSchemaV1
@@ -25,6 +27,7 @@ var supportedOperations = map[string]bool{
 	"etf_universe":     true,
 	"quotes":           true,
 	"bars":             true,
+	"bars_history":     true,
 	"etf_profile":      true,
 	"events":           true,
 	"trading_calendar": true,
@@ -49,6 +52,7 @@ type Operation struct {
 	Limit     int    `json:"limit,omitempty"`
 	Start     string `json:"start,omitempty"`
 	End       string `json:"end,omitempty"`
+	Cursor    string `json:"cursor,omitempty"`
 }
 
 type PartialError struct {
@@ -76,7 +80,7 @@ type Envelope struct {
 // still receive an object rather than an omitted field.
 func (e Envelope) MarshalJSON() ([]byte, error) {
 	type envelopeV1 Envelope
-	if e.Schema != EnvelopeSchemaV2 {
+	if e.Schema != EnvelopeSchemaV2 && e.Schema != EnvelopeSchemaV3 {
 		return json.Marshal(envelopeV1(e))
 	}
 	health := e.ProviderHealth
@@ -133,7 +137,7 @@ func DecodeRequest(r io.Reader) (Request, error) {
 }
 
 func (r Request) Validate() error {
-	if r.Schema != RequestSchemaV1 && r.Schema != RequestSchemaV2 {
+	if r.Schema != RequestSchemaV1 && r.Schema != RequestSchemaV2 && r.Schema != RequestSchemaV3 {
 		return fmt.Errorf("unsupported schema %q", r.Schema)
 	}
 	if strings.TrimSpace(r.RequestID) == "" {
@@ -156,15 +160,35 @@ func (r Request) Validate() error {
 		if r.Schema == RequestSchemaV1 && (op.Name == "market_context" || op.Name == "fund_flow" || op.Name == "sentiment") {
 			return fmt.Errorf("operation %q requires %s", op.Name, RequestSchemaV2)
 		}
+		if op.Name == "bars_history" && r.Schema != RequestSchemaV3 {
+			return fmt.Errorf("operation %q requires %s", op.Name, RequestSchemaV3)
+		}
 		if seen[op.Name+"/"+op.Timeframe] {
 			return fmt.Errorf("duplicate operation %q timeframe %q", op.Name, op.Timeframe)
 		}
 		seen[op.Name+"/"+op.Timeframe] = true
-		if op.Name == "bars" && op.Timeframe != "1d" && op.Timeframe != "5m" {
+		if (op.Name == "bars" || op.Name == "bars_history") && op.Timeframe != "1d" && op.Timeframe != "5m" {
 			return fmt.Errorf("bars timeframe must be 1d or 5m, got %q", op.Timeframe)
 		}
-		if op.Limit < 0 || op.Limit > 2000 {
-			return fmt.Errorf("operation %q limit must be between 0 and 2000", op.Name)
+		maximum := 2000
+		if op.Name == "bars_history" {
+			maximum = 10000
+			if strings.TrimSpace(op.Start) == "" || strings.TrimSpace(op.End) == "" {
+				return errors.New("bars_history requires start and end")
+			}
+			start, startErr := time.Parse("2006-01-02", op.Start)
+			end, endErr := time.Parse("2006-01-02", op.End)
+			if startErr != nil || endErr != nil || end.Before(start) {
+				return errors.New("bars_history start/end must be ordered YYYY-MM-DD dates")
+			}
+			if op.Cursor != "" {
+				if _, err := time.Parse(time.RFC3339, op.Cursor); err != nil {
+					return fmt.Errorf("bars_history cursor must be RFC3339: %w", err)
+				}
+			}
+		}
+		if op.Limit < 0 || op.Limit > maximum {
+			return fmt.Errorf("operation %q limit must be between 0 and %d", op.Name, maximum)
 		}
 	}
 	for _, symbol := range r.Symbols {
