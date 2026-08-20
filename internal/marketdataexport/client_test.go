@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,16 +25,25 @@ func TestCommandDoesNotWriteRuntimeFiles(t *testing.T) {
 	if err := os.Mkdir(runtimeDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	request := `{"schema":"MarketDataRequest/v1","request_id":"side-effect","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","symbols":[],"operations":[{"name":"trading_calendar","start":"2026-08-18","end":"2026-08-19"}]}`
-	command := exec.Command(binary)
-	command.Dir = runtimeDir
-	command.Stdin = bytes.NewBufferString(request)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	command.Stdout = stdout
-	command.Stderr = stderr
-	if err := command.Run(); err != nil {
-		t.Fatalf("run command: %v stderr=%s", err, stderr.String())
+	for _, schema := range []string{RequestSchemaV1, RequestSchemaV2} {
+		request := fmt.Sprintf(`{"schema":%q,"request_id":"side-effect","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","symbols":[],"operations":[{"name":"trading_calendar","start":"2026-08-18","end":"2026-08-19"}]}`, schema)
+		command := exec.Command(binary)
+		command.Dir = runtimeDir
+		command.Stdin = bytes.NewBufferString(request)
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		command.Stdout = stdout
+		command.Stderr = stderr
+		if err := command.Run(); err != nil {
+			t.Fatalf("run command: %v stderr=%s", err, stderr.String())
+		}
+		var envelope Envelope
+		if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil || envelope.Status != "complete" {
+			t.Fatalf("stdout=%s err=%v", stdout.String(), err)
+		}
+		if stderr.Len() != 0 {
+			t.Fatalf("unexpected stderr: %s", stderr.String())
+		}
 	}
 	entries, err := os.ReadDir(runtimeDir)
 	if err != nil {
@@ -42,24 +52,107 @@ func TestCommandDoesNotWriteRuntimeFiles(t *testing.T) {
 	if len(entries) != 0 {
 		t.Fatalf("command created runtime files: %v", entries)
 	}
-	var envelope Envelope
-	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil || envelope.Status != "complete" {
-		t.Fatalf("stdout=%s err=%v", stdout.String(), err)
-	}
-	if stderr.Len() != 0 {
-		t.Fatalf("unexpected stderr: %s", stderr.String())
-	}
 }
 
 func TestDecodeRequestRejectsUnknownSchemaAndOperation(t *testing.T) {
 	for _, body := range []string{
-		`{"schema":"MarketDataRequest/v2","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}]}`,
+		`{"schema":"MarketDataRequest/v3","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}]}`,
 		`{"schema":"MarketDataRequest/v1","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"write_database"}]}`,
 		`{"schema":"MarketDataRequest/v1","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}],"extra":true}`,
 	} {
 		if _, err := DecodeRequest(bytes.NewBufferString(body)); err == nil {
 			t.Fatalf("expected rejection for %s", body)
 		}
+	}
+}
+
+func TestDecodeRequestAcceptsV2AndKeepsV2OnlyOperationsOutOfV1(t *testing.T) {
+	v2 := `{"schema":"MarketDataRequest/v2","request_id":"v2","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","symbols":["510300.SH"],"operations":[{"name":"market_context"},{"name":"fund_flow"},{"name":"sentiment"}]}`
+	if request, err := DecodeRequest(bytes.NewBufferString(v2)); err != nil || request.Schema != RequestSchemaV2 {
+		t.Fatalf("request=%+v err=%v", request, err)
+	}
+	v1 := `{"schema":"MarketDataRequest/v1","request_id":"v1","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","symbols":["510300.SH"],"operations":[{"name":"sentiment"}]}`
+	if _, err := DecodeRequest(bytes.NewBufferString(v1)); err == nil {
+		t.Fatal("expected v1 to reject v2-only operation")
+	}
+}
+
+func TestV2QuoteFallbackAndProviderHealth(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/tencent":
+			http.Error(w, "unavailable", http.StatusBadGateway)
+		case "/sina":
+			_, _ = w.Write([]byte(`var hq_str_sh510300="CSI300 ETF,3.80,3.81,3.90,3.91,3.79,0,0,1234500,4814550,1000,3.89,0,0,0,0,0,0,0,0,1200,3.90,0,0,0,0,0,0,0,0,2026-08-19,10:00:00,00";`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	c := &Client{
+		HTTP: server.Client(),
+		Endpoints: Endpoints{
+			QuoteTencent: server.URL + "/tencent?q=",
+			QuoteSina:    server.URL + "/sina?list=",
+			Quote:        server.URL + "/eastmoney",
+		},
+		Now: func() time.Time { return time.Date(2026, 8, 19, 2, 0, 20, 0, time.UTC) },
+	}
+	req := Request{Schema: RequestSchemaV2, RequestID: "fallback", AsOf: "2026-08-19T10:01:00+08:00", Timezone: "Asia/Shanghai", Symbols: []string{"510300.SH"}, Operations: []Operation{{Name: "quotes"}}}
+	envelope := c.Execute(context.Background(), req)
+	if envelope.Schema != EnvelopeSchemaV2 || envelope.Status != "complete" {
+		t.Fatalf("envelope=%+v", envelope)
+	}
+	if envelope.ProviderHealth[providerTencent].Failures != 1 || envelope.ProviderHealth[providerSina].Successes != 1 {
+		t.Fatalf("provider_health=%+v", envelope.ProviderHealth)
+	}
+	var quotes []map[string]any
+	if err := json.Unmarshal(envelope.Results["quotes"], &quotes); err != nil || len(quotes) != 1 {
+		t.Fatalf("quotes=%+v err=%v", quotes, err)
+	}
+	if quotes[0]["provider"] != providerSina || quotes[0]["fallback_reason"] == nil {
+		t.Fatalf("quote=%+v", quotes[0])
+	}
+	chain, ok := quotes[0]["provider_chain"].([]any)
+	if !ok || len(chain) != 2 {
+		t.Fatalf("provider_chain=%+v", quotes[0]["provider_chain"])
+	}
+}
+
+func TestV2ProfileParsesTrackingHistoryScaleAndFees(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html><body><div class="merchandiseDetail"><div class="fundDetail-tit">沪深300ETF</div></div><div class="infoOfFund"><table><tr><td>基金类型：指数型</td><td>成立日期：2012-05-28</td><td>基金规模：560.25亿元</td></tr><tr><td>管理人：测试基金</td><td>跟踪标的：沪深300指数</td></tr></table></div><div>管理费率：0.50% 托管费率：0.10%</div></body></html>`))
+	}))
+	defer server.Close()
+	c := &Client{HTTP: server.Client(), Endpoints: Endpoints{FundProfile: server.URL + "/%s.html"}, Now: func() time.Time { return time.Date(2026, 8, 19, 2, 0, 0, 0, time.UTC) }}
+	req := Request{Schema: RequestSchemaV2, RequestID: "profile", AsOf: "2026-08-19T10:00:00+08:00", Timezone: "Asia/Shanghai", Symbols: []string{"510300.SH"}, Operations: []Operation{{Name: "etf_profile"}}}
+	envelope := c.Execute(context.Background(), req)
+	if envelope.Status != "complete" {
+		t.Fatalf("envelope=%+v", envelope)
+	}
+	var profiles []map[string]any
+	if err := json.Unmarshal(envelope.Results["etf_profile"], &profiles); err != nil || len(profiles) != 1 {
+		t.Fatalf("profiles=%+v err=%v", profiles, err)
+	}
+	profile := profiles[0]
+	if profile["tracking_index"] != "沪深300指数" || profile["establishment_date"] != "2012-05-28" || profile["assets_cny"] != 56025000000.0 {
+		t.Fatalf("profile=%+v", profile)
+	}
+	if profile["management_fee_rate"] != 0.005 || profile["custody_fee_rate"] != 0.001 {
+		t.Fatalf("fees=%+v/%+v", profile["management_fee_rate"], profile["custody_fee_rate"])
+	}
+}
+
+func TestV1EnvelopeRemainsV1WithoutV2ProviderHealth(t *testing.T) {
+	c := &Client{HTTP: http.DefaultClient, Endpoints: Endpoints{}, Now: func() time.Time { return time.Date(2026, 8, 19, 2, 0, 0, 0, time.UTC) }}
+	req := Request{Schema: RequestSchemaV1, RequestID: "v1", AsOf: "2026-08-19T10:00:00+08:00", Timezone: "Asia/Shanghai", Operations: []Operation{{Name: "trading_calendar", Start: "2026-08-19", End: "2026-08-19"}}}
+	envelope := c.Execute(context.Background(), req)
+	encoded, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Schema != EnvelopeSchemaV1 || bytes.Contains(encoded, []byte("provider_health")) {
+		t.Fatalf("envelope=%s", encoded)
 	}
 }
 

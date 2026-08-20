@@ -11,8 +11,14 @@ import (
 )
 
 const (
-	RequestSchema  = "MarketDataRequest/v1"
-	EnvelopeSchema = "MarketDataEnvelope/v1"
+	RequestSchemaV1  = "MarketDataRequest/v1"
+	RequestSchemaV2  = "MarketDataRequest/v2"
+	EnvelopeSchemaV1 = "MarketDataEnvelope/v1"
+	EnvelopeSchemaV2 = "MarketDataEnvelope/v2"
+
+	// Backward-compatible aliases retained for existing v1 callers and tests.
+	RequestSchema  = RequestSchemaV1
+	EnvelopeSchema = EnvelopeSchemaV1
 )
 
 var supportedOperations = map[string]bool{
@@ -22,6 +28,9 @@ var supportedOperations = map[string]bool{
 	"etf_profile":      true,
 	"events":           true,
 	"trading_calendar": true,
+	"market_context":   true,
+	"fund_flow":        true,
+	"sentiment":        true,
 }
 
 // Request is the only accepted stdin contract. Unknown fields are rejected by DecodeRequest.
@@ -51,13 +60,24 @@ type PartialError struct {
 }
 
 type Envelope struct {
-	Schema     string                     `json:"schema"`
-	RequestID  string                     `json:"request_id"`
-	AsOf       string                     `json:"as_of"`
-	ObservedAt string                     `json:"observed_at"`
-	Status     string                     `json:"status"`
-	Results    map[string]json.RawMessage `json:"results"`
-	Errors     []PartialError             `json:"errors"`
+	Schema         string                     `json:"schema"`
+	RequestID      string                     `json:"request_id"`
+	AsOf           string                     `json:"as_of"`
+	ObservedAt     string                     `json:"observed_at"`
+	Status         string                     `json:"status"`
+	Results        map[string]json.RawMessage `json:"results"`
+	Errors         []PartialError             `json:"errors"`
+	ProviderHealth map[string]ProviderHealth  `json:"provider_health,omitempty"`
+}
+
+// ProviderHealth is request-scoped evidence about bounded provider fallback.
+// It deliberately contains no credentials or local runtime paths.
+type ProviderHealth struct {
+	Attempts   int      `json:"attempts"`
+	Successes  int      `json:"successes"`
+	Failures   int      `json:"failures"`
+	Operations []string `json:"operations"`
+	LastError  string   `json:"last_error,omitempty"`
 }
 
 func DecodeRequest(r io.Reader) (Request, error) {
@@ -78,7 +98,7 @@ func DecodeRequest(r io.Reader) (Request, error) {
 }
 
 func (r Request) Validate() error {
-	if r.Schema != RequestSchema {
+	if r.Schema != RequestSchemaV1 && r.Schema != RequestSchemaV2 {
 		return fmt.Errorf("unsupported schema %q", r.Schema)
 	}
 	if strings.TrimSpace(r.RequestID) == "" {
@@ -97,6 +117,9 @@ func (r Request) Validate() error {
 	for _, op := range r.Operations {
 		if !supportedOperations[op.Name] {
 			return fmt.Errorf("unsupported operation %q", op.Name)
+		}
+		if r.Schema == RequestSchemaV1 && (op.Name == "market_context" || op.Name == "fund_flow" || op.Name == "sentiment") {
+			return fmt.Errorf("operation %q requires %s", op.Name, RequestSchemaV2)
 		}
 		if seen[op.Name+"/"+op.Timeframe] {
 			return fmt.Errorf("duplicate operation %q timeframe %q", op.Name, op.Timeframe)
