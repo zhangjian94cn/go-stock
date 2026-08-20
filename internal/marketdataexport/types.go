@@ -70,6 +70,41 @@ type Envelope struct {
 	ProviderHealth map[string]ProviderHealth  `json:"provider_health,omitempty"`
 }
 
+// MarshalJSON keeps the v1 wire contract unchanged while making the v2
+// provider_health field structurally stable. A v2 operation such as
+// trading_calendar may not contact a market-data provider, but consumers must
+// still receive an object rather than an omitted field.
+func (e Envelope) MarshalJSON() ([]byte, error) {
+	type envelopeV1 Envelope
+	if e.Schema != EnvelopeSchemaV2 {
+		return json.Marshal(envelopeV1(e))
+	}
+	health := e.ProviderHealth
+	if health == nil {
+		health = map[string]ProviderHealth{}
+	}
+	type envelopeV2 struct {
+		Schema         string                     `json:"schema"`
+		RequestID      string                     `json:"request_id"`
+		AsOf           string                     `json:"as_of"`
+		ObservedAt     string                     `json:"observed_at"`
+		Status         string                     `json:"status"`
+		Results        map[string]json.RawMessage `json:"results"`
+		Errors         []PartialError             `json:"errors"`
+		ProviderHealth map[string]ProviderHealth  `json:"provider_health"`
+	}
+	return json.Marshal(envelopeV2{
+		Schema:         e.Schema,
+		RequestID:      e.RequestID,
+		AsOf:           e.AsOf,
+		ObservedAt:     e.ObservedAt,
+		Status:         e.Status,
+		Results:        e.Results,
+		Errors:         e.Errors,
+		ProviderHealth: health,
+	})
+}
+
 // ProviderHealth is request-scoped evidence about bounded provider fallback.
 // It deliberately contains no credentials or local runtime paths.
 type ProviderHealth struct {

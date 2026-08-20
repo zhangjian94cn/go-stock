@@ -188,6 +188,30 @@ func TestV1EnvelopeRemainsV1WithoutV2ProviderHealth(t *testing.T) {
 	}
 }
 
+func TestV2EnvelopeAlwaysIncludesProviderHealthObject(t *testing.T) {
+	envelope := Envelope{
+		Schema:     EnvelopeSchemaV2,
+		RequestID:  "calendar-only",
+		AsOf:       "2026-08-20T10:00:00+08:00",
+		ObservedAt: "2026-08-20T10:00:01+08:00",
+		Results:    map[string]json.RawMessage{},
+		Errors:     []PartialError{},
+	}
+	envelope.Finalize()
+	encoded, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("marshal v2 envelope: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("decode v2 envelope: %v", err)
+	}
+	health, ok := decoded["provider_health"].(map[string]any)
+	if !ok || len(health) != 0 {
+		t.Fatalf("provider_health=%#v", decoded["provider_health"])
+	}
+}
+
 func TestExecuteKeepsPartialFailuresStructured(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
