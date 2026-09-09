@@ -20,7 +20,7 @@
     "@vavt/cm-extension": "^1.11.2",
     "@vavt/v3-extension": "^3.0.0",
     "date-fns": "^4.1.0",
-    "echarts": "^5.6.0",
+    "echarts": "^6.0.0",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
     "lightweight-charts": "^5.2.0",
