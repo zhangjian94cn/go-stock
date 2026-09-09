@@ -48,7 +48,7 @@
     "html-docx-js-typescript": "^0.1.5",
     "less": "^4.6.4",
     "naive-ui": "^2.44.1",
-    "unplugin-auto-import": "^20.3.0",
+    "unplugin-auto-import": "^21.0.0",
     "unplugin-vue-components": "^29.2.0",
     "vfonts": "^0.0.3",
     "vite": "7.3.3"
