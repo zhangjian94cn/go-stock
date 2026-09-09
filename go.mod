@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/ABDELRAHMAN-ELRAYES/go-chunker v1.1.1
 	github.com/PuerkitoBio/goquery v1.12.0
-	github.com/bensema/gotdx v0.0.0-20260704141338-25c9fae16f89
+	github.com/bensema/gotdx v0.0.0-20260814091632-c6958ea51ca5
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/bytedance/sonic v1.15.2
 	github.com/chromedp/cdproto v0.0.0-20260427013145-5737772c319b
