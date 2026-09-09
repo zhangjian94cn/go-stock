@@ -34,7 +34,7 @@ require (
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf
 	github.com/larksuite/oapi-sdk-go/v3 v3.9.7
 	github.com/lib4u/fake-useragent v1.0.6
-	github.com/mark3labs/mcp-go v0.54.1
+	github.com/mark3labs/mcp-go v0.58.0
 	github.com/philippgille/chromem-go v0.7.0
 	github.com/robertkrimen/otto v0.5.1
 	github.com/robfig/cron/v3 v3.0.1
