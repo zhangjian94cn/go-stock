@@ -184,6 +184,8 @@ github.com/cloudwego/eino-ext/components/model/qwen v0.1.9 h1:xCz/mp43JeWqupjPR3
 github.com/cloudwego/eino-ext/components/model/qwen v0.1.9/go.mod h1:slTGTuhzkzhNavf+1UtUg1FvUSA31iNAF+rq1mT4SnI=
 github.com/cloudwego/eino-ext/components/tool/mcp v0.0.8 h1:/QwCVAtB61b4Q2+RUvhoy9AZNkhiThsTySIoimxiJS4=
 github.com/cloudwego/eino-ext/components/tool/mcp v0.0.8/go.mod h1:zxP8sFkADBqflNc0a4qfKdLYQ+edzHPlkOaZF0A1X7o=
+github.com/cloudwego/eino-ext/components/tool/mcp v0.0.9 h1:3NqF4ggVj/JmUopEM+IOrYmU8N/PQyS8gOR0ZV1tSDs=
+github.com/cloudwego/eino-ext/components/tool/mcp v0.0.9/go.mod h1:zxP8sFkADBqflNc0a4qfKdLYQ+edzHPlkOaZF0A1X7o=
 github.com/cloudwego/eino-ext/libs/acl/openai v0.1.17 h1:EeVcR1TslRA2IdNW1h/2LaGbPlffwGhQm99jM3zWZiI=
 github.com/cloudwego/eino-ext/libs/acl/openai v0.1.17/go.mod h1:Zkcx6DPTR2NfWmtSXbhItswGw6hqUezNPhNcke0pOG8=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=

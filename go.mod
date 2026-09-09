@@ -19,7 +19,7 @@ require (
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
 	github.com/cloudwego/eino-ext/components/model/openrouter v0.1.10
 	github.com/cloudwego/eino-ext/components/model/qwen v0.1.9
-	github.com/cloudwego/eino-ext/components/tool/mcp v0.0.8
+	github.com/cloudwego/eino-ext/components/tool/mcp v0.0.9
 	github.com/coocood/freecache v1.2.7
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/duke-git/lancet/v2 v2.3.9
