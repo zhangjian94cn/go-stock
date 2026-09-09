@@ -89,7 +89,7 @@ jobs:
 
       - name: Update release for channel
         if: steps.channel.outputs.channel != 'release'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
