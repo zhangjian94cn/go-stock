@@ -25,8 +25,13 @@ func TestCommandDoesNotWriteRuntimeFiles(t *testing.T) {
 	if err := os.Mkdir(runtimeDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, schema := range []string{RequestSchemaV1, RequestSchemaV2, RequestSchemaV3} {
+	for _, schema := range []string{RequestSchemaV1, RequestSchemaV2, RequestSchemaV3, RequestSchemaV4} {
 		request := fmt.Sprintf(`{"schema":%q,"request_id":"side-effect","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","symbols":[],"operations":[{"name":"trading_calendar","start":"2026-08-18","end":"2026-08-19"}]}`, schema)
+		if schema == RequestSchemaV4 {
+			// v4 has no calendar operation; an empty quote batch exercises
+			// the same no-network path.
+			request = fmt.Sprintf(`{"schema":%q,"request_id":"side-effect","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","symbols":[],"operations":[{"name":"quotes"}]}`, schema)
+		}
 		command := exec.Command(binary)
 		command.Dir = runtimeDir
 		command.Stdin = bytes.NewBufferString(request)
@@ -56,7 +61,7 @@ func TestCommandDoesNotWriteRuntimeFiles(t *testing.T) {
 
 func TestDecodeRequestRejectsUnknownSchemaAndOperation(t *testing.T) {
 	for _, body := range []string{
-		`{"schema":"MarketDataRequest/v4","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}]}`,
+		`{"schema":"MarketDataRequest/v5","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}]}`,
 		`{"schema":"MarketDataRequest/v1","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"write_database"}]}`,
 		`{"schema":"MarketDataRequest/v1","request_id":"x","as_of":"2026-08-19T10:00:00+08:00","timezone":"Asia/Shanghai","operations":[{"name":"quotes"}],"extra":true}`,
 	} {
