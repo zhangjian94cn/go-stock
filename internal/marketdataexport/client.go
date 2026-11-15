@@ -25,6 +25,7 @@ type Endpoints struct {
 	BarsSina     string
 	BarsTencent  string
 	FundProfile  string
+	BarsSinaUS   string
 }
 
 func DefaultEndpoints() Endpoints {
@@ -38,6 +39,7 @@ func DefaultEndpoints() Endpoints {
 		BarsSina:     envOr("GO_STOCK_EXPORT_SINA_BARS_URL", "https://quotes.sina.cn/cn/api/jsonp_v2.php/var_kline/CN_MarketDataService.getKLineData"),
 		BarsTencent:  envOr("GO_STOCK_EXPORT_TENCENT_BARS_URL", "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"),
 		FundProfile:  envOr("GO_STOCK_EXPORT_FUND_PROFILE_URL", "https://fund.eastmoney.com/%s.html"),
+		BarsSinaUS:   envOr("GO_STOCK_EXPORT_SINA_US_BARS_URL", "https://stock.finance.sina.com.cn/usstock/api/jsonp_v2.php/var%20kline=/US_MinKService.getDailyK"),
 	}
 }
 
@@ -114,10 +116,13 @@ func (c *Client) Execute(ctx context.Context, req Request) Envelope {
 	observedAt := c.Now().UTC().Truncate(time.Second)
 	schema := EnvelopeSchemaV1
 	var tracker *providerHealthTracker
-	if req.Schema == RequestSchemaV2 || req.Schema == RequestSchemaV3 {
+	if req.Schema == RequestSchemaV2 || req.Schema == RequestSchemaV3 || req.Schema == RequestSchemaV4 {
 		schema = EnvelopeSchemaV2
 		if req.Schema == RequestSchemaV3 {
 			schema = EnvelopeSchemaV3
+		}
+		if req.Schema == RequestSchemaV4 {
+			schema = EnvelopeSchemaV4
 		}
 		tracker = &providerHealthTracker{health: map[string]ProviderHealth{}}
 		ctx = context.WithValue(ctx, providerHealthKey{}, tracker)
@@ -131,13 +136,17 @@ func (c *Client) Execute(ctx context.Context, req Request) Envelope {
 		var errs []PartialError
 		switch op.Name {
 		case "quotes":
-			if req.Schema != RequestSchemaV1 {
+			if req.Schema == RequestSchemaV4 {
+				result, errs = c.fetchQuotesV4(ctx, req, observedAt)
+			} else if req.Schema != RequestSchemaV1 {
 				result, errs = c.fetchQuotesV2(ctx, req, observedAt)
 			} else {
 				result, errs = c.fetchQuotes(ctx, req, observedAt)
 			}
 		case "bars":
-			if req.Schema != RequestSchemaV1 {
+			if req.Schema == RequestSchemaV4 {
+				result, errs = c.fetchBarsV4(ctx, req, op, observedAt)
+			} else if req.Schema != RequestSchemaV1 {
 				result, errs = c.fetchBarsV2(ctx, req, op, observedAt)
 			} else {
 				result, errs = c.fetchBars(ctx, req, op, observedAt)

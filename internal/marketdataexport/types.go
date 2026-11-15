@@ -14,9 +14,14 @@ const (
 	RequestSchemaV1  = "MarketDataRequest/v1"
 	RequestSchemaV2  = "MarketDataRequest/v2"
 	RequestSchemaV3  = "MarketDataRequest/v3"
+	RequestSchemaV4  = "MarketDataRequest/v4"
 	EnvelopeSchemaV1 = "MarketDataEnvelope/v1"
 	EnvelopeSchemaV2 = "MarketDataEnvelope/v2"
 	EnvelopeSchemaV3 = "MarketDataEnvelope/v3"
+	EnvelopeSchemaV4 = "MarketDataEnvelope/v4"
+
+	// maxSymbolsV4 bounds one multi-market batch request.
+	maxSymbolsV4 = 500
 
 	// Backward-compatible aliases retained for existing v1 callers and tests.
 	RequestSchema  = RequestSchemaV1
@@ -80,7 +85,7 @@ type Envelope struct {
 // still receive an object rather than an omitted field.
 func (e Envelope) MarshalJSON() ([]byte, error) {
 	type envelopeV1 Envelope
-	if e.Schema != EnvelopeSchemaV2 && e.Schema != EnvelopeSchemaV3 {
+	if e.Schema != EnvelopeSchemaV2 && e.Schema != EnvelopeSchemaV3 && e.Schema != EnvelopeSchemaV4 {
 		return json.Marshal(envelopeV1(e))
 	}
 	health := e.ProviderHealth
@@ -137,7 +142,7 @@ func DecodeRequest(r io.Reader) (Request, error) {
 }
 
 func (r Request) Validate() error {
-	if r.Schema != RequestSchemaV1 && r.Schema != RequestSchemaV2 && r.Schema != RequestSchemaV3 {
+	if r.Schema != RequestSchemaV1 && r.Schema != RequestSchemaV2 && r.Schema != RequestSchemaV3 && r.Schema != RequestSchemaV4 {
 		return fmt.Errorf("unsupported schema %q", r.Schema)
 	}
 	if strings.TrimSpace(r.RequestID) == "" {
@@ -162,6 +167,16 @@ func (r Request) Validate() error {
 		}
 		if op.Name == "bars_history" && r.Schema != RequestSchemaV3 {
 			return fmt.Errorf("operation %q requires %s", op.Name, RequestSchemaV3)
+		}
+		if r.Schema == RequestSchemaV4 {
+			// v4 is the multi-market quote and bar surface. The mainland
+			// ETF research operations keep their v2/v3 contracts.
+			if op.Name != "quotes" && op.Name != "bars" {
+				return fmt.Errorf("operation %q is not available in %s; use %s", op.Name, RequestSchemaV4, RequestSchemaV3)
+			}
+			if op.Start != "" || op.End != "" || op.Cursor != "" {
+				return fmt.Errorf("operation %q in %s takes limit only, not start, end or cursor", op.Name, RequestSchemaV4)
+			}
 		}
 		if seen[op.Name+"/"+op.Timeframe] {
 			return fmt.Errorf("duplicate operation %q timeframe %q", op.Name, op.Timeframe)
@@ -190,6 +205,17 @@ func (r Request) Validate() error {
 		if op.Limit < 0 || op.Limit > maximum {
 			return fmt.Errorf("operation %q limit must be between 0 and %d", op.Name, maximum)
 		}
+	}
+	if r.Schema == RequestSchemaV4 {
+		if len(r.Symbols) > maxSymbolsV4 {
+			return fmt.Errorf("%s accepts at most %d symbols per request", RequestSchemaV4, maxSymbolsV4)
+		}
+		for _, symbol := range r.Symbols {
+			if _, err := NormalizeSymbolV4(symbol); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	for _, symbol := range r.Symbols {
 		if _, err := NormalizeSymbol(symbol); err != nil {
