@@ -203,7 +203,16 @@ func (c *Client) fetchBars(ctx context.Context, req Request, op Operation, obser
 				KLines []string `json:"klines"`
 			} `json:"data"`
 		}
-		values := url.Values{"secid": {secID(symbol)}, "klt": {klt}, "fqt": {"0"}, "end": {"20500101"}, "lmt": {strconv.Itoa(limit)}, "fields1": {"f1,f2,f3,f4,f5,f6"}, "fields2": {"f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"}}
+		end := "20500101"
+		if op.End != "" {
+			end = strings.ReplaceAll(op.End, "-", "")
+		}
+		if op.Cursor != "" {
+			if cursor, err := time.Parse(time.RFC3339, op.Cursor); err == nil {
+				end = cursor.In(location).Format("20060102")
+			}
+		}
+		values := url.Values{"secid": {secID(symbol)}, "klt": {klt}, "fqt": {"0"}, "end": {end}, "lmt": {strconv.Itoa(limit)}, "fields1": {"f1,f2,f3,f4,f5,f6"}, "fields2": {"f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"}}
 		if err := c.getJSON(ctx, c.Endpoints.Bars, values, &payload); err != nil {
 			errs = append(errs, operationError("bars", symbol, "provider_failed", err, true))
 			continue

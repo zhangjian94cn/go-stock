@@ -495,6 +495,72 @@ func (c *Client) fetchBarsV2(ctx context.Context, req Request, op Operation, obs
 	return result, errs
 }
 
+// fetchBarsHistoryV3 exposes a point-in-time history window without changing
+// the side-effect-free execution boundary. Each returned symbol page uses one
+// provider; consumers must reject incomplete coverage rather than splice
+// providers together.
+func (c *Client) fetchBarsHistoryV3(ctx context.Context, req Request, op Operation, observed time.Time) (any, []PartialError) {
+	query := op
+	query.Name = "bars"
+	if query.Limit == 0 {
+		query.Limit = 10000
+	}
+	result, errs := c.fetchBarsV2(ctx, req, query, observed)
+	grouped, ok := result.(map[string]any)
+	if !ok {
+		return nil, errs
+	}
+	location, _ := time.LoadLocation(req.Timezone)
+	start, _ := time.ParseInLocation("2006-01-02", op.Start, location)
+	endDay, _ := time.ParseInLocation("2006-01-02", op.End, location)
+	end := endDay.Add(24*time.Hour - time.Nanosecond)
+	var cursor time.Time
+	if op.Cursor != "" {
+		cursor, _ = time.Parse(time.RFC3339, op.Cursor)
+	}
+	response := map[string]any{}
+	for symbol, raw := range grouped {
+		records, _ := raw.([]any)
+		filtered := make([]any, 0, len(records))
+		for _, item := range records {
+			record, recordOK := item.(map[string]any)
+			if !recordOK {
+				continue
+			}
+			stamp, err := time.Parse(time.RFC3339, fmt.Sprint(record["timestamp"]))
+			if err != nil || stamp.Before(start) || stamp.After(end) || (!cursor.IsZero() && !stamp.Before(cursor)) {
+				continue
+			}
+			filtered = append(filtered, record)
+		}
+		nextCursor := ""
+		complete := len(filtered) < query.Limit
+		if len(filtered) == query.Limit {
+			if first, firstOK := filtered[0].(map[string]any); firstOK {
+				nextCursor = fmt.Sprint(first["timestamp"])
+			}
+		}
+		provider := ""
+		if len(filtered) > 0 {
+			if first, firstOK := filtered[0].(map[string]any); firstOK {
+				provider = fmt.Sprint(first["provider"])
+			}
+		}
+		response[symbol] = map[string]any{
+			"records":     filtered,
+			"next_cursor": nextCursor,
+			"complete":    complete,
+			"provider":    provider,
+			"start":       op.Start,
+			"end":         op.End,
+		}
+	}
+	if len(response) == 0 {
+		return nil, errs
+	}
+	return response, errs
+}
+
 func compactText(value string) string {
 	return strings.Join(strings.Fields(strings.ReplaceAll(value, "\u00a0", " ")), "")
 }
